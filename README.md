@@ -1,103 +1,259 @@
-# Space Engineers Client Plugin Template
+# MirrorCameraPlugin
 
-[Server/Client version of the template](https://github.com/sepluginloader/PluginTemplate)
+A Pulsar plugin for Space Engineers that renders **real-time mirror
+reflections** and **live camera feeds** onto in-game LCD panels. Pairs
+with the `MirrorCameraMod` SE mod (the mod owns the LCD apps and
+terminal UI; the plugin owns the actual rendering).
 
-## Prerequisites
+The mod alone shows a "Plugin not loaded" splash. The plugin alone does
+nothing. Together they render.
 
-- [Space Engineers](https://store.steampowered.com/app/244850/Space_Engineers/)
-- [Python 3.12](https://python.org) (requires 3.12 or newer)
-- [Pulsar](https://github.com/SpaceGT/Pulsar)
-- [.NET Framework 4.8.1 Developer Pack](https://dotnet.microsoft.com/en-us/download/dotnet-framework/net481)
+---
 
-## Create your plugin project
+## Features
 
-1. Click on **Use this template** (top right corner on GitHub) and follow the wizard to create your repository
-2. Clone your repository to have a local working copy
-3. Run `setup.py`, enter the name of your plugin project in `CapitalizedWords` format
-4. Let `setup.py` auto-detect your install location or fill it in manually
-5. Open the solution in Visual Studio or Rider
-6. Make a test build, the plugin's DLL should be deployed (see the build log for the path)
-7. Test that the empty plugin can be enabled in Pulsar
-8. Replace the contents of this file with the description of your plugin
-9. Follow the TODO comments in the source code and implement your plugin
+### Mirror panels
 
-In case of questions please feel free to ask the SE plugin developer community on the
-[Pulsar](https://discord.gg/z8ZczP2YZY) Discord server in their relevant text channels. 
-They also have dedicated channels for plugin ideas, should you look for a new one.
+- Real **off-axis reflection** — the world is rendered from the eye's
+  reflection across the panel plane, with an off-axis frustum bounded
+  by the LCD's actual rectangle. Not a billboard, not a camera trick.
+- **Coplanar same-grid grouping**: a flat wall of mirrors that share a
+  plane is rendered as ONE off-axis pass, then blitted with the correct
+  sub-rect to each member's offscreen. A 3×3 mirror wall costs one
+  render, not nine.
+- Adjacency-gated merging — touching panels merge, distant coplanar
+  panels stay separate.
+- "Always group touching" override (default on) — edge-to-edge mirror
+  walls of arbitrary size merge into one render regardless of the
+  proportional render-target budget.
 
-_Good luck!_
+### Camera panels
 
-## Remarks
+- Live view from any camera block on the same grid or any mechanically
+  connected subgrid (rotors, pistons, hinges).
+- Per-surface camera selection via the LCD's terminal controls.
+- Per-surface zoom (1.0×–15.0×) and render-range sliders.
+- Frustum honors the camera's actual lens position (the `"camera"`
+  model dummy that `MyCameraBlock.GetViewMatrix` uses).
 
-### Plugin configuration
+### Scheduling
 
-You can have a nice configuration dialog with little effort in the game client.
-Customize the `Config` class in the `ClientPlugin` project, just follow the examples.
-It supports many different data types, including key binding. Once you have more
-options than can fit on the screen the dialog will have a vertical scrollbar.
+The orchestrator picks at most `MaxPerFrame` panels to render per batch.
+Same `FocusAndStalenessSelector` instance runs both slots; behavior:
 
-![Example config dialog](Docs/ConfigDialogExample.png "Example config dialog")
+- **Pass 1 — focus threshold**: any unit whose
+  `FocusScore = Coverage × LookFactor²⁰ / max(1, DistSq)` exceeds
+  `0.001` is "focused" — the player is clearly aimed at it. Highest-
+  scoring focused unit wins.
+- **Pass 2 — focus + staleness**: when no unit passes the threshold,
+  pick by `focus + staleness × 1e-5`. Stale panels climb past
+  peripheral-but-not-stale ones over many frames.
+- **`MaxPerFrame=1` + focused-camera edge case** — control-room mode.
+  Cameras don't ghost between frames so a single-slot budget shouldn't
+  lock to one aimed-at camera. Mirrors keep focus+staleness priority;
+  cameras pure round-robin via a cursor.
+- **Player-stationary + focused-mirror edge case** — mirror ghosting
+  only shows under TRANSLATION (reflected-eye moves), not rotation.
+  When the eye isn't moving every visible mirror cycles via a cursor,
+  giving each equal update share.
+- **Render-failure backoff** — on render failure the staleness clock
+  advances anyway, so a permanently-broken panel can't accumulate
+  unbounded priority and dominate every batch.
 
-### Debugging
+### Cull pipeline
 
-- Always use a debug build if you want to set breakpoints and see variable values.
-- A debug build defines `DEBUG`, so you can add conditional code in `#if DEBUG` blocks.
-- While debugging a specific target unload the other two. It prevents the IDE to be confused.
-- If breakpoints do not "stick" or do not work, then make sure that:
-  - Other projects are unloaded, only the debugged one and Shared are loaded.
-  - Debugger is attached to the running process.
-  - You are debugging the code which is running (no code changes made since the build).
+Each batch a unit (one panel group + scoring) runs through this
+sequence before becoming eligible for picking. Cheap checks first;
+later ones rely on earlier stages having pruned the obvious rejects.
 
-### Building and debugging on .NET 10
+1. **`MinCoverage` cull** — drops units whose screen-projected
+   coverage is below `1e-4` (≈ 14×14 pixels on 1080p). Catches
+   permanently-broken tiny far panels that would otherwise enter the
+   staleness-runaway loop.
+2. **Range cull** — group's screen-center farther from the eye than
+   the panel's configured `Render Range` (default 40m, max 500m).
+3. **Facing cull** — viewer is on the back side of the panel plane.
+   Double-sided LCDs flip the plane normal instead so the reflection
+   still works from either side.
+4. **Look-direction cull** — every AABB corner outside the look cone
+   (cosine ≈ 0.26 ≡ 75° off-axis). Per-corner so wide groups with one
+   corner in view don't get dropped.
+5. **Frustum cull** — group's union AABB outside the player's view.
+6. **Panel-vs-panel occlusion cull** — drops any unit whose
+   screen-projected NDC AABB is fully contained inside a closer unit's
+   AABB (both clipped to viewport). O(N²) over surviving units, sub-µs
+   at typical N. Catches the "wall of close LCDs hides the ones
+   behind them" case so we don't burn GPU rendering invisible panels.
 
-- Start the game with the `Interim.exe` Pulsar executable with the `-sources` command line option.
-- Click on the Sources button in Pulsar's dialog, then set up a development folder for your plugin.
-- Make sure to fill in the PluginHub registration XML (`YourPluginName.xml` in this repo) and load that as well.
-- Select `Debug` mode and run `Interim.exe`, then attach the debugger. That should allow debugging your plugin.
-- Select `Release` mode to test exactly how Pulsar will build and run your plugin on the player's machine.
-- The registered development folder shows up as a plugin you can select in the plugin list and save into a profile.
+The diag log line `cull: built=N stdCull=M survived=K` distinguishes
+the first five stages from the panel-vs-panel pass — N−M panels are
+dropped by frustum/facing/look/range/coverage; M−K are dropped by
+panel-vs-panel occlusion.
 
-#### Separate .NET 10 DLL build and deployment
+### Per-panel render-resolution bucketing
 
-- Build your plugin for both `net10` and `net48`.
-- Make a copy of the `Legacy` folder as `Interim`, it will have a separate set of everything (profiles, `Local` dir).
-- Extend `Deploy.bat` to deploy the .NET 10 build to the `Interim\Local` folder.
-- Now you can start `Interim.exe` with debugging and debug the binary build of your plugin as usual.
+Scene render for each panel runs at a power-of-2 viewport (`{128, 256,
+512, 1024}` per axis) bucketed by Coverage and capped at the LCD's
+offscreen RT size. Smaller buckets save GPU at the cost of a blit
+upscale (visible as some blur on distant panels).
 
-### Accessing internal, protected and private members in game code
+The bucket math:
+- `scale = sqrt(Coverage × 2)` clamped to `[0..1]`
+- `desired = lcdSize × scale` per axis
+- Snap each axis UP to the smallest pow2 bucket ≥ desired
+- Cap each axis at LCD RT size AND at main view resolution
 
-Enable the Krafs publicizer to significantly reduce the amount of reflections you need to write.
+For a 512×512 LCD on 1920×1080:
 
-This can be done by systematically uncommenting the code sections marked with "Uncomment to enable publicizer support".
-Make sure not to miss any of those. List the game assemblies you need to publicize in `GameAssembliesToPublicize.cs`.
-In case of problems read about the [Krafs Publicizer](https://github.com/krafs/Publicizer) or reach out on the [Pulsar](https://discord.gg/z8ZczP2YZY) Discord server.
+| Coverage | scale | desired px | bucket |
+|---|---|---|---|
+| 0.5 | 1.0 | 512 | 512 (1:1) |
+| 0.25 | 0.71 | 362 | 512 (1:1) |
+| 0.1 | 0.45 | 229 | 256 (2× upscale) |
+| 0.025 | 0.22 | 115 | 128 (4× upscale) |
 
-### AI assisted plugin development
+### Other
 
-Please consider using [se-dev-skills](https://github.com/viktor-ferenczi/se-dev-skills/) for better outcomes.
+- **Per-panel status channel** — plugin reports per-panel state
+  (`"rendered"`, `"failed: ..."`) back to the mod, which surfaces it
+  as the splash subtitle.
+- **Cockpit head fix** — character head/eye materials masked in FPV
+  are unmasked during panel renders so the mirror reflects the full
+  character even when seated.
+- **Optional shadow suppression** — turn off the engine's directional
+  shadows pass for panel renders to avoid cascade flickering.
 
-### Troubleshooting
+---
 
-- If the IDE looks confused, then restarting it and the debugged game usually works.
-- If the restart did not work, then try to delete caches used by your IDE and restart.
-- If your build cannot deploy (just runs in a loop), then something locks the DLL file.
-- Look for running game processes (maybe stuck running in the background) and kill them.
+## Performance
 
-### Release
+A single panel render is roughly the cost of a low-LOD scene pass —
+SE's full pipeline (lighting, post-process minus a few extras) runs
+into a render target sized to fit the panel. The plugin's job is to
+make sure that pass happens at most once per panel per frame and that
+unnecessary panels never enter the pipeline at all.
 
-- Always make your final release from a RELEASE build. (More optimized, removes debug code.)
-- Always test your RELEASE build before publishing. Sometimes it behaves differently.
-- In case of client plugins the Pulsar compiles your code, watch out for differences.
+Knobs from most-impactful to least:
 
-### Communication
+- **`MaxPerFrame`** (default 1) — hard cap on panels rendered per
+  batch. Single most impactful perf setting.
+- **Distance resolution LOD** (default off) — power-of-2 bucketing
+  described above. Cuts GPU work on distant panels at the cost of
+  some blit-upscale blur.
+- **Render shadows** (default on) — directional shadow pass is most
+  of the per-panel GPU cost. Off saves a lot but can leave a slight
+  flat look on the reflection.
+- **Far clip (m)** (default 5000) — far-plane distance. Lower = less
+  shadow-cascade / distant-LOD work.
 
-- In your documentation always include how players or server admins should report bugs.
-- Try to be reachable and respond on a timely manner over your communication channels.
-- Be open for constructive critics.
+The orchestrator also rebuilds the group structure only when the
+registry version changes (panel added / removed / config changed).
+Steady state is one integer compare per batch.
 
-### Abandoning your project
+---
 
-- Always consider finding a new maintainer, ask around at least once.
-- If you ever abandon the project, then make it clear on its GitHub page.
-- Abandoned projects should be made hidden on PluginHub and Torch's plugin list.
-- Keep the code available on GitHub, so it can be forked and continued by others.
+## Configuration
+
+In-game plugin config (Pulsar plugin list → "Mirror Camera Panels" →
+Configure):
+
+| Setting | Default | Purpose |
+|---|---|---|
+| Enabled | on | Master switch |
+| Max per frame | 1 | Hard cap on panels rendered per batch |
+| Head fix | on | Show character head/face during panel renders |
+| Far clip (m) | 5000 | Far-plane distance for panel renders |
+| Render shadows | on | Include directional shadows in panel renders |
+| Always group touching | on | Merge edge-to-edge mirror walls regardless of RT budget |
+| Debug HUD | off | Top-N scored panels with per-unit signals + world-space outlines |
+| Distance resolution LOD | off | Pow2-bucketed render-resolution scaling |
+
+Per-LCD settings (in the LCD's terminal controls when its app is set
+to "Mirror" or "Camera"):
+
+- **Camera source** (Camera app) — listbox of every camera on the
+  same grid or any mechanically-connected subgrid.
+- **Camera zoom** (Camera app, when source selected) — 1.0×–15.0×.
+- **Render range** — meters. Beyond this the LCD shows its splash.
+  Default 40m, max 500m.
+
+---
+
+## Architecture
+
+```
+┌──────────────────────────────┐         ┌──────────────────────────────┐
+│ MirrorCameraMod              │         │ MirrorCameraPlugin           │
+│ (SE mod)                     │         │ (Pulsar plugin)              │
+├──────────────────────────────┤         ├──────────────────────────────┤
+│ MirrorScript / CameraScript  │         │ ReflectionModBridge          │
+│   ▼                          │         │   reads PanelRegistry via    │
+│ PanelRegistry                │ ──────► │   reflection per Sync        │
+│   sim-thread snapshot of all │         │   ▼                          │
+│   active panels + status     │         │ SurfaceRegistry              │
+│                              │ ◄────── │   plugin-side mirror,        │
+│ MirrorSession                │ status  │   versioned for cache gating │
+│   terminal UI, storage I/O   │ writes  │   ▼                          │
+│                              │         │ PanelGroupBuilder            │
+│                              │         │   merges coplanar same-grid  │
+│                              │         │   mirrors into groups        │
+│                              │         │   ▼                          │
+│                              │         │ PanelBatchOrchestrator       │
+│                              │         │   refresh planes → score →   │
+│                              │         │   cull → pick → render       │
+└──────────────────────────────┘         └──────────────────────────────┘
+```
+
+Cross-assembly access uses reflection (the SE mod assembly is renamed
+by the engine at load time, no static type reference is resolvable).
+Field readers are compiled to delegates at resolve time so per-sync
+reads don't pay the boxing cost.
+
+---
+
+## Building
+
+```sh
+dotnet build MirrorCameraPlugin/MirrorCameraPlugin.csproj \
+  /p:Bin64="path/to/SpaceEngineers/Bin64" \
+  /p:PulsarDir="path/to/Pulsar"
+```
+
+Targets `net48`. Uses Harmony and the Krafs publicizer trick to access
+engine internals.
+
+---
+
+## Debugging
+
+Turn on **Debug HUD** in the plugin config:
+
+- Top-left list of the top-N scored render units. Each row shows the
+  picked-marker, focus + focus-with-staleness scores, bucketed
+  viewport size, far plane, group size, mode, plane normal, distance
+  factors, coverage, distance.
+- For whatever's under the crosshair (ray-vs-AABB intersect): a
+  detailed block — union AABB, member breakdown, tentative RT size
+  vs main view cap, the chosen viewport bucket vs LCD RT.
+- World-space wireframe rectangles around every in-view group
+  (picked = green, others = white).
+
+The engine log (`%APPDATA%/SpaceEngineers/SpaceEngineers_*.log`) gets
+throttled diag lines under `[MirrorCameraPlugin/Diag]`:
+- `groups: total=N solo=M grouped=K (members=L)` per rebuild
+- `merge: reject mode=... grid=... ...` — rejection counts per cause
+- `cull: built=N stdCull=M survived=K` per batch
+- `render: picked=N rendered=M failed=L` per batch
+- `renderfail: block=... reason='...'` for every failed render
+  (identifies block + cause)
+
+---
+
+## Distribution
+
+Plugins are released exclusively on PluginHub. The DLL is compiled on
+the player's machine from this repository's GitHub source, identified
+by the PluginHub registration. Plugins are reviewed for safety and
+security on submission, on a best-effort basis.
+
+To report bugs or contribute, file an issue / PR on the repo.

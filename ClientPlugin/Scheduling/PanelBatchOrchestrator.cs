@@ -105,14 +105,28 @@ internal sealed class PanelBatchOrchestrator : IPanelBatchOrchestrator
 
     public void RunBatch()
     {
-        if (!_settings.Enabled) return;
+        if (!_settings.Enabled)
+        {
+            // Tell every registered panel the plugin is intentionally
+            // off, so the mod TSS splash shows "Plugin disabled"
+            // instead of the default "Plugin not loaded". The status
+            // sink dedupes against LastReportedStatus, so steady-state
+            // cost is one string compare per panel per frame.
+            var disabled = _registry.SnapshotForRender();
+            for (int i = 0; i < disabled.Length; i++)
+                _statusSink.Report(disabled[i], "Plugin disabled");
+            return;
+        }
 
         // Panels strain the GPU — let go whenever the player isn't
         // actively in-game. Covers Esc menu in single-player (IsPaused),
         // any pause source, and main-menu / world-not-loaded state
         // (Session null). In MP we keep rendering because the world
         // is still simulating regardless of the player's menu state.
-        if (Sandbox.MySandboxGame.IsPaused) return;
+        // RenderOnPauseScreen overrides the pause gate for users who
+        // want the panels to keep going while they're staring at the
+        // menu (mostly useful for screenshots / showing off builds).
+        if (Sandbox.MySandboxGame.IsPaused && !_settings.RenderOnPauseScreen) return;
         if (Sandbox.ModAPI.MyAPIGateway.Session == null) return;
 
         // Bail in VR/stereo mode: SetupCameraMatrices would apply our

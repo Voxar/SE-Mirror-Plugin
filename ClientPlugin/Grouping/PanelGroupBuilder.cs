@@ -269,14 +269,13 @@ internal sealed class PanelGroupBuilder : IPanelGroupBuilder
 
             // RT-size guard. The proportional render target (each
             // member targeting 512 of the union's px width) must fit
-            // the main view's RT, OR — when the candidate is literally
-            // touching an existing member and the AlwaysGroupTouching
-            // setting is on — the budget is bypassed. Bypassed merges
-            // still cap implicitly at the main RT because that's where
-            // the render runs; the panels just get fewer effective
-            // pixels each. Mirror walls opt into that tradeoff.
-            bool touchingOverride =
-                _settings.AlwaysGroupTouching && IsTouchingAnyMember(g, in plane, rot);
+            // the main view's RT, OR the candidate is literally
+            // touching an existing member — in which case the budget
+            // is bypassed. Bypassed merges still cap implicitly at
+            // the main RT because that's where the render runs; the
+            // panels just get fewer effective pixels each. Mirror
+            // walls opt into that tradeoff by being built touching.
+            bool touchingOverride = IsTouchingAnyMember(g, in plane, rot);
             if (!touchingOverride && !FitsRtSizeBudget(g, in plane, rot))
             { _rejectRtBudget++; continue; }
 
@@ -317,9 +316,10 @@ internal sealed class PanelGroupBuilder : IPanelGroupBuilder
     /// True iff the candidate's (U,V) AABB is within
     /// <see cref="TouchingTolerance"/> of an existing member's AABB
     /// on each axis. Tighter than <see cref="IsAdjacentToGroup"/> —
-    /// strictly "touching", not "one panel away". Used by the
-    /// AlwaysGroupTouching override to allow walls of contiguous
-    /// mirrors to merge past the proportional RT-size budget.
+    /// strictly "touching", not "one panel away". Touching panels
+    /// bypass the proportional RT-size budget so walls of contiguous
+    /// mirrors merge into one group rather than being split into
+    /// chunks.
     /// </summary>
     private static bool IsTouchingAnyMember(
         PanelGroup g, in WorldScreenPlane plane, int rotation)

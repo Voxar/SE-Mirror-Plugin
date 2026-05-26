@@ -20,10 +20,8 @@ internal interface IPanelGroupBuilder
     IReadOnlyList<PanelGroup> GetGroups(ISurfaceRegistry registry);
 
     /// <summary>Discard the version-cached group list so the next
-    /// <see cref="GetGroups"/> call rebuilds from scratch. Used by the
-    /// debug "force regroup" action — sometimes the registry version
-    /// hasn't changed but the user wants to re-run the merge pass
-    /// (e.g. after changing the AlwaysGroupTouching toggle, which
-    /// otherwise doesn't trigger a version bump on its own).</summary>
+    /// <see cref="GetGroups"/> call rebuilds from scratch. Used by
+    /// the debug "force regroup" action when the registry version
+    /// hasn't changed but the user wants to re-run the merge pass.</summary>
     void InvalidateCache();
 }

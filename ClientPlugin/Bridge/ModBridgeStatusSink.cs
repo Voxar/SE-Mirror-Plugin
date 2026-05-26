@@ -12,19 +12,16 @@ namespace ClientPlugin;
 /// </summary>
 internal sealed class ModBridgeStatusSink : IPanelStatusSink
 {
-    private readonly IModBridge            _bridge;
-    private readonly IMirrorPluginSettings _settings;
+    private readonly IModBridge _bridge;
 
-    public ModBridgeStatusSink(IModBridge bridge, IMirrorPluginSettings settings)
+    public ModBridgeStatusSink(IModBridge bridge)
     {
-        _bridge   = bridge   ?? throw new ArgumentNullException(nameof(bridge));
-        _settings = settings ?? throw new ArgumentNullException(nameof(settings));
+        _bridge = bridge ?? throw new ArgumentNullException(nameof(bridge));
     }
 
     public void Report(PanelSurface surface, string status)
     {
         if (surface == null) return;
-        if (!_settings.ReportStatus) return;
         if (surface.LastReportedStatus == status) return;          // unchanged → skip
         var blockId = surface.Block?.EntityId ?? 0L;
         if (blockId == 0L) return;

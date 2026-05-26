@@ -105,7 +105,7 @@ internal sealed class CameraPanelRenderer : IPanelRenderer
                 fovH: fovH, fovV: cv.FovV,
                 farPlaneMeters:    ctx.EffectiveFarPlaneM,
                 farFarPlaneMeters: ctx.EffectiveFarFarPlaneM,
-                enableShadows:     _settings.RenderShadows);
+                enableShadows:     !_settings.DisableShadows);
 
             // 5. Swap engine state, render, blit.
             var finalizer = new BlitToOffscreenFinalizer(_shader, off.Rtv, BlitTransform.Identity);

@@ -93,7 +93,7 @@ public class Plugin : IPlugin
         // SurfaceRegistry.Sync no-ops on identical state; HeadFix
         // only polls every N ticks.
         _surfaceRegistry?.Sync();
-        _headFix?.OnSimTick(Config.Current.HeadFix);
+        _headFix?.OnSimTick(true);
     }
 
     private void DetectModReloadAndInvalidateBridge()
@@ -152,7 +152,7 @@ public class Plugin : IPlugin
         // Cross-assembly mod bridge + surface registry + plugin→mod
         // status channel.
         _modBridge       = new ReflectionModBridge();
-        var statusSink   = new ModBridgeStatusSink(_modBridge, settings);
+        var statusSink   = new ModBridgeStatusSink(_modBridge);
         _surfaceRegistry = new SurfaceRegistry(_modBridge, statusSink);
 
         // Engine wrappers — stateless or single-instance, no

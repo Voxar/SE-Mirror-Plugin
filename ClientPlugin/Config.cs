@@ -14,8 +14,7 @@ namespace ClientPlugin;
 ///
 /// <para>Implements <see cref="IMirrorPluginSettings"/> so plugin
 /// services that take the interface stay decoupled from this concrete
-/// class — same pattern the old <c>MirrorCameraPluginSettings</c>
-/// used. Consumers should read on each use rather than cache, since
+/// class. Consumers should read on each use rather than cache, since
 /// the dialog mutates fields live.</para>
 ///
 /// <para>Persistence: <see cref="ConfigStorage"/> XML-serializes this
@@ -27,14 +26,12 @@ public class Config : INotifyPropertyChanged, IMirrorPluginSettings
 
     private bool  _enabled                  = true;
     private int   _maxPerFrame              = 1;
-    private bool  _headFix                  = true;
     private float _panelFarClipM            = 20000f;
-    private bool  _alwaysGroupTouching      = true;
-    private bool  _reportStatus             = true;
-    private bool  _renderShadows            = true;
+    private bool  _disableShadows           = false;
     private bool  _debugHud                 = false;
     private bool  _distanceResolutionScale  = true;
     private float _maxViewDistanceM         = 10f;
+    private bool  _renderOnPauseScreen      = false;
 
     // ── Dialog title ────────────────────────────────────────────────
 
@@ -51,6 +48,10 @@ public class Config : INotifyPropertyChanged, IMirrorPluginSettings
         set => SetField(ref _enabled, value);
     }
 
+    // ── Performance ─────────────────────────────────────────────────
+
+    [Separator("Performance")]
+
     [Slider(1f, 3f, 1f, SliderAttribute.SliderType.Integer,
         description: "Maximum panels rendered per frame. Original policy = 1.")]
     public int MaxPerFrame
@@ -58,10 +59,6 @@ public class Config : INotifyPropertyChanged, IMirrorPluginSettings
         get => _maxPerFrame;
         set => SetField(ref _maxPerFrame, value);
     }
-
-    // ── Range ───────────────────────────────────────────────────────
-
-    [Separator("Range")]
 
     [Slider(1f, 400f, 1f, SliderAttribute.SliderType.Float,
         label: "Max view distance (m)",
@@ -81,18 +78,6 @@ public class Config : INotifyPropertyChanged, IMirrorPluginSettings
         set => SetField(ref _panelFarClipM, value);
     }
 
-    // ── Quality ─────────────────────────────────────────────────────
-
-    [Separator("Quality")]
-
-    [Checkbox(label: "Render shadows",
-        description: "Disable if shadows flicker.")]
-    public bool RenderShadows
-    {
-        get => _renderShadows;
-        set => SetField(ref _renderShadows, value);
-    }
-
     [Checkbox(label: "Distance resolution LOD",
         description: "Distant panels render at lower resolution.")]
     public bool DistanceResolutionScale
@@ -101,32 +86,24 @@ public class Config : INotifyPropertyChanged, IMirrorPluginSettings
         set => SetField(ref _distanceResolutionScale, value);
     }
 
-    // ── Advanced ────────────────────────────────────────────────────
-
-    [Separator("Advanced")]
-
-    [Checkbox(label: "Head fix",
-        description: "Show character head/face during panel renders.")]
-    public bool HeadFix
+    [Checkbox(label: "Render on pause screen",
+        description: "Keep panels rendering when the game is paused. Off by default to free GPU.")]
+    public bool RenderOnPauseScreen
     {
-        get => _headFix;
-        set => SetField(ref _headFix, value);
+        get => _renderOnPauseScreen;
+        set => SetField(ref _renderOnPauseScreen, value);
     }
 
-    [Checkbox(label: "Always group touching",
-        description: "Merge edge-to-edge mirror walls regardless of RT budget.")]
-    public bool AlwaysGroupTouching
-    {
-        get => _alwaysGroupTouching;
-        set => SetField(ref _alwaysGroupTouching, value);
-    }
+    // ── Troubleshooting ─────────────────────────────────────────────
 
-    [Checkbox(label: "Report status",
-        description: "Push per-panel status to the mod for splash subtitles.")]
-    public bool ReportStatus
+    [Separator("Troubleshooting")]
+
+    [Checkbox(label: "Disable shadows",
+        description: "Suppress the directional-shadows pass in panel renders. Try this if shadows flicker in reflections.")]
+    public bool DisableShadows
     {
-        get => _reportStatus;
-        set => SetField(ref _reportStatus, value);
+        get => _disableShadows;
+        set => SetField(ref _disableShadows, value);
     }
 
     // ── Debug ───────────────────────────────────────────────────────

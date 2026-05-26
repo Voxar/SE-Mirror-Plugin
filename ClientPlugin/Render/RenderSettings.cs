@@ -53,10 +53,10 @@ internal readonly struct RenderSettings
     /// <summary>Settings tuned for a mirror render: lodding off
     /// (no LOD churn mid-render), billboards on, shadows frozen (no
     /// cascade recompute), eye-adapt on, post-process extras off.
-    /// <paramref name="enableShadows"/> is plumbed from the plugin's
-    /// <see cref="IMirrorPluginSettings.RenderShadows"/> toggle —
-    /// users can disable shadows in panel renders if cascade
-    /// recomputation causes flickering. Inherits other fields from
+    /// <paramref name="enableShadows"/> is plumbed from the inverse
+    /// of the plugin's <see cref="IMirrorPluginSettings.DisableShadows"/>
+    /// toggle — users can disable shadows in panel renders if
+    /// cascade recomputation causes flickering. Inherits other fields from
     /// <paramref name="main"/>.</summary>
     public static RenderSettings ForMirror(in RenderSettings main, bool enableShadows) => new(
         lodding:             false,

@@ -105,7 +105,7 @@ internal sealed class MirrorPanelRenderer : IPanelRenderer
             var panelState = PanelRenderState.ForMirror(
                 in ctx.MainState, in cam,
                 ctx.EffectiveFarPlaneM, ctx.EffectiveFarFarPlaneM,
-                _settings.RenderShadows);
+                !_settings.DisableShadows);
             var finalizer = new BlitToOffscreenFinalizer(_shader, off.Rtv, BlitTransform.XFlip);
 
             using (var _ = MainCameraStateGuard.Push(in ctx.MainState, in panelState))

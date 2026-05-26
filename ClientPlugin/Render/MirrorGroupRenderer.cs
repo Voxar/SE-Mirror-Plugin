@@ -79,7 +79,7 @@ internal sealed class MirrorGroupRenderer : IMirrorGroupRenderer
             var panelState = PanelRenderState.ForMirror(
                 in ctx.MainState, in cam,
                 ctx.EffectiveFarPlaneM, ctx.EffectiveFarFarPlaneM,
-                _settings.RenderShadows);
+                !_settings.DisableShadows);
 
             var finalizer = new GroupFanoutFinalizer(
                 _shader, group, _scratchOffscreens, unionW, unionH);

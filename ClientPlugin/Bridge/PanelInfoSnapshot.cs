@@ -26,11 +26,14 @@ internal readonly struct PanelInfoSnapshot
     /// <summary>Mirror mode: pitch applied to the screen plane normal
     /// before reflection (degrees). 0 for Camera mode.</summary>
     public readonly float          MirrorAngleDegY;
+    /// <summary>Mirror mode: roll around the screen-normal axis
+    /// (degrees, in-plane). 0 for Camera mode.</summary>
+    public readonly float          MirrorAngleDegZ;
 
     public PanelInfoSnapshot(
         IMyTextSurface surface, IMyCubeBlock block, int surfaceIdx,
         PanelMode mode, IMyCubeBlock cameraBlock, float zoom,
-        float mirrorAngleDegX, float mirrorAngleDegY)
+        float mirrorAngleDegX, float mirrorAngleDegY, float mirrorAngleDegZ)
     {
         Surface         = surface;
         Block           = block;
@@ -40,8 +43,9 @@ internal readonly struct PanelInfoSnapshot
         Zoom            = zoom;
         MirrorAngleDegX = mirrorAngleDegX;
         MirrorAngleDegY = mirrorAngleDegY;
+        MirrorAngleDegZ = mirrorAngleDegZ;
     }
 
     public PanelIdentity Identity => new(Block, SurfaceIdx);
-    public PanelConfig   Config   => new(Mode, CameraBlock, Zoom, MirrorAngleDegX, MirrorAngleDegY);
+    public PanelConfig   Config   => new(Mode, CameraBlock, Zoom, MirrorAngleDegX, MirrorAngleDegY, MirrorAngleDegZ);
 }

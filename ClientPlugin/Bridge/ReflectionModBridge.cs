@@ -36,6 +36,7 @@ internal sealed class ReflectionModBridge : IModBridge
     private Func<object, float>           _readZoom;
     private Func<object, float>           _readMirrorAngleDegX;
     private Func<object, float>           _readMirrorAngleDegY;
+    private Func<object, float>           _readMirrorAngleDegZ;
     private Action<long, int, string>     _writeStatus;
 
     public bool IsResolved => _enumerate != null;
@@ -108,6 +109,7 @@ internal sealed class ReflectionModBridge : IModBridge
             _readZoom            = CompileReader<float>(panelInfoType, "Zoom");
             _readMirrorAngleDegX = CompileReader<float>(panelInfoType, "MirrorAngleDegX");
             _readMirrorAngleDegY = CompileReader<float>(panelInfoType, "MirrorAngleDegY");
+            _readMirrorAngleDegZ = CompileReader<float>(panelInfoType, "MirrorAngleDegZ");
             _enumerate           = (Func<IEnumerable>)Delegate.CreateDelegate(
                                        typeof(Func<IEnumerable>), enumMi);
         }
@@ -153,6 +155,7 @@ internal sealed class ReflectionModBridge : IModBridge
         _readZoom            = null;
         _readMirrorAngleDegX = null;
         _readMirrorAngleDegY = null;
+        _readMirrorAngleDegZ = null;
         _writeStatus         = null;
     }
 
@@ -192,7 +195,8 @@ internal sealed class ReflectionModBridge : IModBridge
                 cameraBlock:     _readCameraBlock(entry),
                 zoom:            _readZoom(entry),
                 mirrorAngleDegX: _readMirrorAngleDegX(entry),
-                mirrorAngleDegY: _readMirrorAngleDegY(entry));
+                mirrorAngleDegY: _readMirrorAngleDegY(entry),
+                mirrorAngleDegZ: _readMirrorAngleDegZ(entry));
         }
     }
 

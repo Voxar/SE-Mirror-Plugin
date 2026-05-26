@@ -33,4 +33,5 @@ internal sealed record class PanelConfig(
     IMyCubeBlock CameraBlock,
     float        Zoom,
     float        MirrorAngleDegX,
-    float        MirrorAngleDegY);
+    float        MirrorAngleDegY,
+    float        MirrorAngleDegZ);

@@ -21,11 +21,11 @@
     <!-- Optional plugin description. If omitted, this will be the same as the Tooltip. 1000 characters max. -->
     <Description>Adds Mirrors to Space Engineers, as LCD app to use on any TextPanel and LCD block
 
-        Created for immersive vehicle rear view mirrors and First Person view only playthroughs. 
-        Also comes with a Camera LCD app. 
+Created for immersive vehicle rear view mirrors and First Person view only playthroughs. 
+Also comes with a Camera LCD app. 
 
-        Somewhat complicated "fucus/attention based scheduling" updates as many mirror and camera screens 
-        as possible with only one extra world render per frame.
+Somewhat complicated "fucus/attention based scheduling" updates as many mirror and camera screens 
+as possible with only one extra world render per frame.
     </Description>
 
     <!-- Only source code in the Directory entries listed in SourceDirectories is compiled. Exclude any test projects or similar. -->

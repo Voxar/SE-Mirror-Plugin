@@ -1,124 +1,147 @@
 using ClientPlugin.Settings;
 using ClientPlugin.Settings.Elements;
-using Sandbox.Graphics.GUI;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
-using System.Text;
-using ClientPlugin.Settings.Tools;
-using VRage.Input;
-using VRageMath;
-
 
 namespace ClientPlugin;
 
-public enum ExampleEnum
+/// <summary>
+/// Runtime plugin settings. Properties are decorated with the
+/// template's settings-element attributes so <c>SettingsGenerator</c>
+/// builds the config dialog automatically; INotifyPropertyChanged is
+/// the template's wire for live-update.
+///
+/// <para>Implements <see cref="IMirrorPluginSettings"/> so plugin
+/// services that take the interface stay decoupled from this concrete
+/// class — same pattern the old <c>MirrorCameraPluginSettings</c>
+/// used. Consumers should read on each use rather than cache, since
+/// the dialog mutates fields live.</para>
+///
+/// <para>Persistence: <see cref="ConfigStorage"/> XML-serializes this
+/// class. Saved on dialog close via <c>SettingsScreen.OnRemoved</c>.</para>
+/// </summary>
+public class Config : INotifyPropertyChanged, IMirrorPluginSettings
 {
-    FirstAlpha,
-    SecondBeta,
-    ThirdGamma,
-    AndTheDelta,
-    Epsilon
-}
+    // ── Backing fields ──────────────────────────────────────────────
 
-public class Config : INotifyPropertyChanged
-{
-    #region Options
+    private bool  _enabled                  = true;
+    private int   _maxPerFrame              = 1;
+    private bool  _headFix                  = true;
+    private float _panelFarClipM            = 20000f;
+    private bool  _alwaysGroupTouching      = true;
+    private bool  _reportStatus             = true;
+    private bool  _renderShadows            = true;
+    private bool  _debugHud                 = false;
+    private bool  _distanceResolutionScale  = true;
+    private float _maxViewDistanceM         = 10f;
 
-    // TODO: Define your configuration options and their default values
-    private bool toggle = true;
-    private int integer = 2;
-    private float number = 0.1f;
-    private string text = "Default Text";
-    private ExampleEnum dropdown = ExampleEnum.FirstAlpha;
-    private Color color = Color.Cyan;
-    private Color colorWithAlpha = new Color(0.8f, 0.6f, 0.2f, 0.5f);
-    private Binding keybind = new Binding(MyKeys.None);
+    // ── Dialog title ────────────────────────────────────────────────
 
-    #endregion
+    public readonly string Title = "Mirror Camera Panels";
 
-    #region User interface
+    // ── Master ──────────────────────────────────────────────────────
 
-    // TODO: Settings dialog title
-    public readonly string Title = "Config Demo";
+    [Separator("Master")]
 
-    [Separator("Some settings")]
-        
-    // TODO: Settings dialog controls, one property for each configuration option
-
-    [Checkbox(description: "Checkbox Tooltip")]
-    public bool Toggle
+    [Checkbox(description: "Master enable for all panel renders.")]
+    public bool Enabled
     {
-        get => toggle;
-        set => SetField(ref toggle, value);
+        get => _enabled;
+        set => SetField(ref _enabled, value);
     }
 
-    [Slider(-1f, 10f, 1f, SliderAttribute.SliderType.Integer, description: "Integer Slider Tooltip")]
-    public int Integer
+    [Slider(1f, 3f, 1f, SliderAttribute.SliderType.Integer,
+        description: "Maximum panels rendered per frame. Original policy = 1.")]
+    public int MaxPerFrame
     {
-        get => integer;
-        set => SetField(ref integer, value);
+        get => _maxPerFrame;
+        set => SetField(ref _maxPerFrame, value);
     }
 
-    [Slider(-5f, 4.5f, 0.5f, SliderAttribute.SliderType.Float, description: "Float Slider Tooltip")]
-    public float Number
+    // ── Range ───────────────────────────────────────────────────────
+
+    [Separator("Range")]
+
+    [Slider(1f, 400f, 1f, SliderAttribute.SliderType.Float,
+        label: "Max view distance (m)",
+        description: "Panels farther than this from the viewer don't render.")]
+    public float MaxViewDistanceM
     {
-        get => number;
-        set => SetField(ref number, value);
+        get => _maxViewDistanceM;
+        set => SetField(ref _maxViewDistanceM, value);
     }
 
-    [Textbox(description: "Textbox Tooltip")]
-    public string Text
+    [Slider(1300f, 100000f, 100f, SliderAttribute.SliderType.Float,
+        label: "Far clip (m)",
+        description: "Far plane distance for panel renders.")]
+    public float PanelFarClipM
     {
-        get => text;
-        set => SetField(ref text, value);
+        get => _panelFarClipM;
+        set => SetField(ref _panelFarClipM, value);
     }
 
-    [Dropdown(description: "Dropdown Tooltip")]
-    public ExampleEnum Dropdown
+    // ── Quality ─────────────────────────────────────────────────────
+
+    [Separator("Quality")]
+
+    [Checkbox(label: "Render shadows",
+        description: "Disable if shadows flicker.")]
+    public bool RenderShadows
     {
-        get => dropdown;
-        set => SetField(ref dropdown, value);
+        get => _renderShadows;
+        set => SetField(ref _renderShadows, value);
     }
 
-    [Separator("More settings")]
-        
-    [Color(description: "RGB color")]
-    public Color Color
+    [Checkbox(label: "Distance resolution LOD",
+        description: "Distant panels render at lower resolution.")]
+    public bool DistanceResolutionScale
     {
-        get => color;
-        set => SetField(ref color, value);
+        get => _distanceResolutionScale;
+        set => SetField(ref _distanceResolutionScale, value);
     }
 
-    [Color(hasAlpha: true, description: "RGBA color")]
-    public Color ColorWithAlpha
+    // ── Advanced ────────────────────────────────────────────────────
+
+    [Separator("Advanced")]
+
+    [Checkbox(label: "Head fix",
+        description: "Show character head/face during panel renders.")]
+    public bool HeadFix
     {
-        get => colorWithAlpha;
-        set => SetField(ref colorWithAlpha, value);
+        get => _headFix;
+        set => SetField(ref _headFix, value);
     }
 
-    [Keybind(description: "Keybind Tooltip - Unbind by right clicking the button")]
-    public Binding Keybind
+    [Checkbox(label: "Always group touching",
+        description: "Merge edge-to-edge mirror walls regardless of RT budget.")]
+    public bool AlwaysGroupTouching
     {
-        get => keybind;
-        set => SetField(ref keybind, value);
+        get => _alwaysGroupTouching;
+        set => SetField(ref _alwaysGroupTouching, value);
     }
 
-    [Button(description: "Button Tooltip")]
-    public void Button()
+    [Checkbox(label: "Report status",
+        description: "Push per-panel status to the mod for splash subtitles.")]
+    public bool ReportStatus
     {
-        MyGuiSandbox.AddScreen(MyGuiSandbox.CreateMessageBox(
-            MyMessageBoxStyleEnum.Info,
-            buttonType: MyMessageBoxButtonsType.OK,
-            messageText: new StringBuilder("You clicked me!"),
-            messageCaption: new StringBuilder("Custom Button Function"),
-            size: new Vector2(0.6f, 0.5f)
-        ));
+        get => _reportStatus;
+        set => SetField(ref _reportStatus, value);
     }
 
-    #endregion
+    // ── Debug ───────────────────────────────────────────────────────
 
-    #region Property change notification boilerplate
+    [Separator("Debug")]
+
+    [Checkbox(label: "Debug HUD",
+        description: "Overlay scored panels and signals on screen.")]
+    public bool DebugHud
+    {
+        get => _debugHud;
+        set => SetField(ref _debugHud, value);
+    }
+
+    // ── INotifyPropertyChanged boilerplate ──────────────────────────
 
     public static readonly Config Default = new Config();
     public static readonly Config Current = ConfigStorage.Load();
@@ -137,6 +160,4 @@ public class Config : INotifyPropertyChanged
         OnPropertyChanged(propertyName);
         return true;
     }
-
-    #endregion
 }

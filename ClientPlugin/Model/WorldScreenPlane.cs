@@ -59,8 +59,8 @@ internal readonly struct WorldScreenPlane
     /// CORNER when both axes lean). The edge — at
     /// <c>+signX·HalfWidth·Right + signY·HalfHeight·Up</c> from
     /// <see cref="Center"/> — stays fixed in world space; the opposite
-    /// edge swings backward. Matches <see cref="ModelTiltApplier"/>'s
-    /// pivot strategy so the reflection plane stays attached to the
+    /// edge swings backward. Matches the mod's MirrorMeshTilt pivot
+    /// strategy so the reflection plane stays attached to the visibly
     /// tilted mesh.
     ///
     /// <para>Yaw is applied before pitch (consistent ordering between

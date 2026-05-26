@@ -613,13 +613,13 @@ internal sealed class PanelGroupBuilder : IPanelGroupBuilder
 
         if (!_planeResolver.TryResolve(blockEntity, materialName, out var local)) return false;
 
-        // Use the actor's freshest world matrix — ModelTiltApplier
-        // pushes the per-LCD mirror tilt into the actor's child-to-
-        // parent matrix, so the plane derived from it ends up at the
-        // visibly tilted screen's world position. PlaneTiltHelper
-        // currently passes through unchanged because of this; kept as
-        // a seam in case the plane-tilt path ever needs to diverge
-        // from the mesh tilt again.
+        // Use the actor's freshest world matrix — the mod's
+        // MirrorMeshTilt game-logic component writes the tilted local
+        // matrix on the entity, so the plane derived from this matrix
+        // ends up at the visibly tilted screen's world position.
+        // PlaneTiltHelper currently passes through unchanged because
+        // of this; kept as a seam in case the plane-tilt path ever
+        // needs to diverge from the mesh tilt again.
         MatrixD blockWorld = _actorMatrix.GetFreshestMatrix(blockEntity);
         plane = PlaneTiltHelper.BuildTilted(in local, in blockWorld, surface.Config, _settings);
         return true;

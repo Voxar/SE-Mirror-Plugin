@@ -1,9 +1,8 @@
 namespace ClientPlugin;
 
 /// <summary>
-/// Single source of truth for the per-LCD mirror yaw/pitch cap so
-/// the render-only mesh tilt in <see cref="ModelTiltApplier"/> always
-/// agrees with whatever future caller wants to clamp a slider value.
+/// Single source of truth for the per-LCD yaw/pitch cap so callers
+/// that need to clamp a slider value all agree on the bound.
 /// </summary>
 internal static class MirrorAngleClamp
 {

@@ -54,9 +54,10 @@ internal sealed class PanelGroupPlaneRefresher : IPanelGroupPlaneRefresher
 
             if (!_planeResolver.TryResolve(blockEntity, material, out var local)) continue;
 
-            // Actor's freshest world matrix — includes
-            // ModelTiltApplier's per-LCD mirror tilt, so the refreshed
-            // plane stays attached to the visibly tilted mesh.
+            // Actor's freshest world matrix — includes the mod-side
+            // mesh tilt (MirrorMeshTilt component writes the tilted
+            // local matrix), so the refreshed plane stays attached
+            // to the visibly tilted mesh.
             MatrixD blockWorld = _actorMatrix.GetFreshestMatrix(blockEntity);
             var world = PlaneTiltHelper.BuildTilted(in local, in blockWorld, lead.Config, _settings);
 

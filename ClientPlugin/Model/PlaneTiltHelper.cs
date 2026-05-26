@@ -10,9 +10,9 @@ namespace ClientPlugin;
 /// here.
 ///
 /// <para>The per-surface mirror yaw/pitch enters the world plane
-/// IMPLICITLY: <see cref="ModelTiltApplier"/> pushes the same tilt
-/// into the block's render-side child-to-parent matrix every sim
-/// tick, and the <paramref name="blockWorld"/> passed in here is the
+/// IMPLICITLY: the mod's MirrorMeshTilt game-logic component writes
+/// the tilted local matrix on the block entity, and the
+/// <paramref name="blockWorld"/> passed in here is the
 /// actor's freshest world matrix (post-tilt). So this method just
 /// applies the standard mesh-local → world transform and the plane
 /// comes out at the same position the visibly tilted mesh occupies —

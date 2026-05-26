@@ -60,12 +60,12 @@ internal sealed class MirrorPanelRenderer : IPanelRenderer
             }
 
             // 2. World matrix from the freshest render actor. This
-            //    INCLUDES ModelTiltApplier's mirror-yaw/pitch tilt
-            //    (pushed into the actor's child-to-parent matrix via
-            //    SetParentCullObject), so the plane built from it ends
-            //    up at exactly the same world position as the visibly
-            //    tilted mesh. Eligible block + tilt = both tilt
-            //    together; ineligible or zero tilt = neither tilts.
+            //    INCLUDES the mod-side yaw/pitch mesh tilt (MirrorMeshTilt
+            //    component writes the tilted local matrix on the
+            //    entity), so the plane built from it ends up at exactly
+            //    the same world position as the visibly tilted mesh.
+            //    Eligible block + tilt = both tilt together; ineligible
+            //    or zero tilt = neither tilts.
             MatrixD blockWorld = _actorMatrix.GetFreshestMatrix(blockEntity);
 
             // 3. Local mesh plane → world plane.

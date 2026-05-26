@@ -50,7 +50,6 @@ public class Plugin : IPlugin
     private MirrorShader              _blitShader;
     private IPanelGroupBuilder        _groupBuilder;
     private IPanelBatchOrchestrator   _orchestrator;
-    private ModelTiltApplier          _modelTilt;
     private Harmony                   _harmony;
 
     private SettingsGenerator settingsGenerator;
@@ -92,11 +91,9 @@ public class Plugin : IPlugin
 
         // Sim-thread tick. Each call is cheap when nothing changed:
         // SurfaceRegistry.Sync no-ops on identical state; HeadFix
-        // only polls every N ticks; ModelTiltApplier dedupes on
-        // (block, angle) so untouched panels skip the render push.
+        // only polls every N ticks.
         _surfaceRegistry?.Sync();
         _headFix?.OnSimTick(Config.Current.HeadFix);
-        _modelTilt?.OnSimTick();
     }
 
     private void DetectModReloadAndInvalidateBridge()
@@ -192,11 +189,6 @@ public class Plugin : IPlugin
         // Grouping (incremental on registry version).
         _groupBuilder      = new PanelGroupBuilder(planeResolver, actorMatrix, settings, diag);
         var planeRefresher = new PanelGroupPlaneRefresher(planeResolver, actorMatrix, settings);
-
-        // Per-sim-tick render-only mesh tilt, pushed via
-        // SetParentCullObject so collision / physics stay at the
-        // entity's actual orientation.
-        _modelTilt = new ModelTiltApplier(_surfaceRegistry, planeResolver);
 
         // Scheduling.
         var scorer    = new UnitScorer();

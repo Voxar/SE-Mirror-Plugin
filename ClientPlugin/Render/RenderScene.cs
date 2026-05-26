@@ -20,7 +20,7 @@ namespace ClientPlugin;
 /// of post-process effects).
 ///
 /// <para>The finalizer is generic-struct-callback rather than a
-/// <see cref="Action"/>: <see cref="LightweightPanelPipeline"/>-style
+/// <see cref="Action"/>: <see cref="RenderScene"/>-style
 /// invocation with <c>in</c>-passed struct lets the JIT devirtualize
 /// the call and avoid a per-call closure allocation.</para>
 /// </summary>

@@ -84,12 +84,11 @@ internal sealed class MirrorPanelRenderer : IPanelRenderer
                     halfHeight:  1.25f,
                     doubleSided: false);
             }
-            // Bake the per-surface mirror tilt into the world plane at
-            // build time (see PlaneTiltHelper). The same helper is used
-            // by the group builder and group plane refresher so every
-            // downstream consumer sees the same tilted plane.
-            var worldPlane = PlaneTiltHelper.BuildTilted(
-                in localPlane, in blockWorld, surface.Config, _settings);
+            // Transform the resolved local plane to world space. The
+            // mod's MirrorMeshTilt component writes the tilted local
+            // matrix on the block, so the resulting world plane stays
+            // attached to the visibly tilted screen.
+            var worldPlane = WorldScreenPlane.From(in localPlane, in blockWorld);
 
             // 4. Build the reflected camera. Skips when viewer is on
             //    (or behind) the plane.

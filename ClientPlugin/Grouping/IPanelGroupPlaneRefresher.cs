@@ -12,8 +12,9 @@ namespace ClientPlugin;
 /// </summary>
 internal interface IPanelGroupPlaneRefresher
 {
-    /// <summary>Refresh the basis on every mirror-mode group in
-    /// <paramref name="groups"/>. Camera-mode groups are skipped
-    /// (single member; geometry read fresh by the renderer).</summary>
+    /// <summary>Refresh the basis on every group with a populated
+    /// plane (Normal length &gt; 0.5). Plane-less groups — mirrors
+    /// whose geometry hasn't resolved yet, or camera-mode panels
+    /// kept as no-plane solo fallbacks — are skipped.</summary>
     void Refresh(IReadOnlyList<PanelGroup> groups);
 }

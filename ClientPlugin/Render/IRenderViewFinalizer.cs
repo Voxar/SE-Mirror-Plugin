@@ -4,7 +4,7 @@ using VRage.Render11.Resources;
 namespace ClientPlugin;
 
 /// <summary>
-/// Callback contract for <see cref="LightweightPanelPipeline.RenderInto"/>.
+/// Callback contract for <see cref="RenderScene.RenderInto"/>.
 /// The pipeline runs the cull → gbuffer → lighting → tonemap → billboards
 /// → fxaa sequence, then hands the post-process sRGB result to the
 /// finalizer for the final blit step.

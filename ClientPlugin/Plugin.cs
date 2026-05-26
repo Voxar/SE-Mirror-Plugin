@@ -85,9 +85,15 @@ public class Plugin : IPlugin
     {
         // Detect when SE has compiled+loaded a new MirrorCameraMod
         // assembly (= session reload, since the old assembly can't
-        // unload). Latest-in-AppDomain ≠ our cached type → drop the
-        // bridge so the next Sync re-binds to the new statics.
-        DetectModReloadAndInvalidateBridge();
+        // unload). Throttled because AppDomain.GetAssemblies() allocates
+        // a fresh array each call and the load-event is rare enough that
+        // a 1-second polling delay before re-binding is invisible.
+        _modReloadProbeTicks++;
+        if (_modReloadProbeTicks >= ModReloadProbeIntervalTicks)
+        {
+            _modReloadProbeTicks = 0;
+            DetectModReloadAndInvalidateBridge();
+        }
 
         // Sim-thread tick. Each call is cheap when nothing changed:
         // SurfaceRegistry.Sync no-ops on identical state; HeadFix
@@ -95,6 +101,10 @@ public class Plugin : IPlugin
         _surfaceRegistry?.Sync();
         _headFix?.OnSimTick(true);
     }
+
+    // ~60 ticks/s sim — every ~1 s.
+    private const int ModReloadProbeIntervalTicks = 60;
+    private int _modReloadProbeTicks;
 
     private void DetectModReloadAndInvalidateBridge()
     {
@@ -187,12 +197,12 @@ public class Plugin : IPlugin
         var diag = new ThrottledDiagLog();
 
         // Grouping (incremental on registry version).
-        _groupBuilder      = new PanelGroupBuilder(planeResolver, actorMatrix, settings, diag);
+        _groupBuilder      = new PanelGroupBuilder(planeResolver, actorMatrix, settings);
         var planeRefresher = new PanelGroupPlaneRefresher(planeResolver, actorMatrix, settings);
 
         // Scheduling.
         var scorer    = new UnitScorer();
-        var cullChain = PanelCullChain.Default(settings);
+        var cullChain = PanelCullChain.Default(settings, statusSink);
         var slot0Score = new FocusScore();      // also used by PanelDebug HUD ranking
         // Single selector for every slot: focus-threshold pass
         // picks the panel the player is clearly looking at;

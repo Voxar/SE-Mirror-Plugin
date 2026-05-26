@@ -30,7 +30,7 @@ public class Config : INotifyPropertyChanged, IMirrorPluginSettings
     private bool  _disableShadows           = false;
     private bool  _debugHud                 = false;
     private bool  _distanceResolutionScale  = true;
-    private float _maxViewDistanceM         = 10f;
+    private float _maxViewDistanceM         = 40f;
     private bool  _renderOnPauseScreen      = false;
 
     // ── Dialog title ────────────────────────────────────────────────
@@ -60,7 +60,7 @@ public class Config : INotifyPropertyChanged, IMirrorPluginSettings
         set => SetField(ref _maxPerFrame, value);
     }
 
-    [Slider(1f, 400f, 1f, SliderAttribute.SliderType.Float,
+    [Slider(5f, 400f, 1f, SliderAttribute.SliderType.Float,
         label: "Max view distance (m)",
         description: "Panels farther than this from the viewer don't render.")]
     public float MaxViewDistanceM

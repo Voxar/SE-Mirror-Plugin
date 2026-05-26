@@ -11,7 +11,7 @@ namespace ClientPlugin;
 /// <see cref="BlitTransform.Identity"/>).
 ///
 /// <para>Implemented as a <c>readonly struct</c> so the generic
-/// <see cref="LightweightPanelPipeline.RenderInto"/> call boxes
+/// <see cref="RenderScene.RenderInto"/> call boxes
 /// nothing and the JIT can inline the dispatch.</para>
 /// </summary>
 internal readonly struct BlitToOffscreenFinalizer : IRenderViewFinalizer

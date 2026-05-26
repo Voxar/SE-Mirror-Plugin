@@ -22,9 +22,8 @@ namespace ClientPlugin;
 ///         <see cref="UpdateConfig"/> on registry sync), read by render
 ///         thread. The reference field write itself is atomic; readers
 ///         observe a consistent snapshot.</item>
-///   <item>Render-thread caches (<see cref="LastRenderedTick"/>,
-///         <see cref="CachedOffscreen"/>, <see cref="CachedActorMatrix"/>,
-///         etc.): written and read on the render thread only.</item>
+///   <item>Render-thread state (<see cref="LastRenderedTick"/>):
+///         written and read on the render thread only.</item>
 ///   <item><see cref="Group"/>: written by <see cref="PanelGroupBuilder"/>
 ///         on the render thread (between batches), read by renderers
 ///         within a batch.</item>
@@ -65,19 +64,6 @@ internal sealed class PanelSurface
     /// Default <see cref="long.MinValue"/> means "never". Used by the
     /// slot scheduler for staleness scoring.</summary>
     internal long LastRenderedTick = long.MinValue;
-
-    /// <summary>Cached LCD offscreen RT, resolved by
-    /// <see cref="LcdOffscreenResolver"/>. Re-validated against
-    /// <see cref="_cachedRenderObjectId"/> to detect actor swaps.</summary>
-    internal IRtvBindable           CachedOffscreen;
-    internal IUserGeneratedTexture  CachedOffscreenTexture;
-    internal string                 CachedMaterialName;
-    internal int                    CachedAreaIdx = -1;
-    internal uint                   CachedRenderObjectId = uint.MaxValue;
-
-    /// <summary>Cached render-side world matrix from the freshest
-    /// actor. Updated per render via <see cref="ActorMatrixSource"/>.</summary>
-    internal MatrixD CachedActorMatrix;
 
     /// <summary>Group this surface currently belongs to, set by
     /// <see cref="PanelGroupBuilder"/>. May be a solo group.</summary>
@@ -122,21 +108,13 @@ internal sealed class PanelSurface
 
     /// <summary>
     /// Called by <see cref="SurfaceRegistry"/> when the mod
-    /// unregisters this surface. Implementations of step 5+ will clear
-    /// the LCD's offscreen here so the last mirror frame doesn't stick
-    /// after the surface goes away.
+    /// unregisters this surface. Drops references so the renderer
+    /// stops touching a panel that's gone away.
     /// </summary>
     public void OnUnregister()
     {
-        // Drop cached render-thread refs so the surface doesn't keep
-        // the engine's RT pool alive past its useful life.
-        CachedOffscreen        = null;
-        CachedOffscreenTexture = null;
-        CachedMaterialName     = null;
-        CachedAreaIdx          = -1;
-        CachedRenderObjectId   = uint.MaxValue;
-        Group                  = null;
-        LastReportedStatus     = null;
+        Group              = null;
+        LastReportedStatus = null;
     }
 
     // ── Render-thread API: scheduling ────────────────────────────────

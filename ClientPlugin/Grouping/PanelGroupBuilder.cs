@@ -39,7 +39,6 @@ internal sealed class PanelGroupBuilder : IPanelGroupBuilder
     private readonly IScreenPlaneResolver  _planeResolver;
     private readonly IActorMatrixSource    _actorMatrix;
     private readonly IMirrorPluginSettings _settings;
-    private readonly ThrottledDiagLog      _diag;
 
     private readonly List<PanelGroup> _groups = new();
     private int _lastSeenVersion = -1;
@@ -51,12 +50,6 @@ internal sealed class PanelGroupBuilder : IPanelGroupBuilder
     // outer loop dissolves those groups together so the bridged set
     // ends up as one group instead of two-plus-bridge.
     private readonly List<int> _touchedScratch = new();
-
-    // Per-rebuild reject counters for the diagnostic log. Reset at
-    // the start of each Rebuild, emitted once at the end.
-    private int _rejectMode, _rejectGrid, _rejectNormal,
-                _rejectBasis, _rejectDistance, _rejectRtBudget,
-                _rejectProximity;
 
     // Sticky flag: the last Rebuild encountered at least one mirror
     // surface whose plane wouldn't resolve (block in a transient
@@ -75,13 +68,11 @@ internal sealed class PanelGroupBuilder : IPanelGroupBuilder
     public PanelGroupBuilder(
         IScreenPlaneResolver  planeResolver,
         IActorMatrixSource    actorMatrix,
-        IMirrorPluginSettings settings,
-        ThrottledDiagLog      diag)
+        IMirrorPluginSettings settings)
     {
         _planeResolver = planeResolver ?? throw new ArgumentNullException(nameof(planeResolver));
         _actorMatrix   = actorMatrix   ?? throw new ArgumentNullException(nameof(actorMatrix));
         _settings      = settings      ?? throw new ArgumentNullException(nameof(settings));
-        _diag          = diag          ?? throw new ArgumentNullException(nameof(diag));
     }
 
     public IReadOnlyList<PanelGroup> GetGroups(ISurfaceRegistry registry)
@@ -112,10 +103,6 @@ internal sealed class PanelGroupBuilder : IPanelGroupBuilder
         }
         _groups.Clear();
 
-        // Reset per-rebuild reject counters for the diag log.
-        _rejectMode = _rejectGrid = _rejectNormal =
-            _rejectBasis = _rejectDistance = _rejectRtBudget =
-            _rejectProximity = 0;
         _hasUnresolvedMirrorPlanes = false;
 
         var surfaces = registry.SnapshotForRender();
@@ -238,11 +225,11 @@ internal sealed class PanelGroupBuilder : IPanelGroupBuilder
         {
             var g = _groups[gi];
             if (g.Members.Count == 0) continue;
-            if (g.Members[0].Surface.Mode != PanelMode.Mirror) { _rejectMode++; continue; }
-            if (g.GridEntityId != gridId)                      { _rejectGrid++; continue; }
+            if (g.Members[0].Surface.Mode != PanelMode.Mirror) continue;
+            if (g.GridEntityId != gridId)                      continue;
             if ((int)Math.Round(g.Normal.X * q) != nx
              || (int)Math.Round(g.Normal.Y * q) != ny
-             || (int)Math.Round(g.Normal.Z * q) != nz)         { _rejectNormal++; continue; }
+             || (int)Math.Round(g.Normal.Z * q) != nz)         continue;
 
             // In-plane rotation: candidate.basisU vs group.basisU/V →
             //   0 = +group.basisU (same orientation)
@@ -261,11 +248,10 @@ internal sealed class PanelGroupBuilder : IPanelGroupBuilder
             else if (ux ==  cvx && uy ==  cvy && uz ==  cvz) rot = 1;
             else if (ux == -cux && uy == -cuy && uz == -cuz) rot = 2;
             else if (ux == -cvx && uy == -cvy && uz == -cvz) rot = 3;
-            else { _rejectBasis++; continue; }
+            else continue;
 
             double candidateDist = Vector3D.Dot(g.Origin, g.Normal);
-            if (Math.Abs(candidateDist - signedDist) > DistanceToleranceM)
-            { _rejectDistance++; continue; }
+            if (Math.Abs(candidateDist - signedDist) > DistanceToleranceM) continue;
 
             // RT-size guard. The proportional render target (each
             // member targeting 512 of the union's px width) must fit
@@ -276,8 +262,7 @@ internal sealed class PanelGroupBuilder : IPanelGroupBuilder
             // panels just get fewer effective pixels each. Mirror
             // walls opt into that tradeoff by being built touching.
             bool touchingOverride = IsTouchingAnyMember(g, in plane, rot);
-            if (!touchingOverride && !FitsRtSizeBudget(g, in plane, rot))
-            { _rejectRtBudget++; continue; }
+            if (!touchingOverride && !FitsRtSizeBudget(g, in plane, rot)) continue;
 
             // Adjacency guard. Don't merge unless the candidate's
             // (U,V) AABB sits within one-of-its-own-dimensions of an
@@ -289,7 +274,7 @@ internal sealed class PanelGroupBuilder : IPanelGroupBuilder
             // candidate that fails this stays solo; subsequent
             // candidates may fill the gap and let it merge in a
             // future rebuild.
-            if (!IsAdjacentToGroup(g, in plane, rot)) { _rejectProximity++; continue; }
+            if (!IsAdjacentToGroup(g, in plane, rot)) continue;
 
             // Record whether the candidate is literally touching this
             // group — used by the outer loop's bridge-dissolve step.
@@ -617,11 +602,8 @@ internal sealed class PanelGroupBuilder : IPanelGroupBuilder
         // MirrorMeshTilt game-logic component writes the tilted local
         // matrix on the entity, so the plane derived from this matrix
         // ends up at the visibly tilted screen's world position.
-        // PlaneTiltHelper currently passes through unchanged because
-        // of this; kept as a seam in case the plane-tilt path ever
-        // needs to diverge from the mesh tilt again.
         MatrixD blockWorld = _actorMatrix.GetFreshestMatrix(blockEntity);
-        plane = PlaneTiltHelper.BuildTilted(in local, in blockWorld, surface.Config, _settings);
+        plane = WorldScreenPlane.From(in local, in blockWorld);
         return true;
     }
 

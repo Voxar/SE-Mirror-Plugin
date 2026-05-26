@@ -33,10 +33,6 @@ namespace ClientPlugin;
 /// </summary>
 internal static class PanelDebug
 {
-    // ── Log prefix ────────────────────────────────────────────────────
-
-    private const string LogPrefix = "[Mirror] ";
-
     // ── HUD layout ────────────────────────────────────────────────────
 
     private const int    HudMaxRows     = 10;
@@ -173,7 +169,7 @@ internal static class PanelDebug
         // intersection — independent of picking, so the detail block
         // stays anchored to whatever the player is looking at, even if
         // that group isn't rendered this batch (cycling, MP=1, etc.).
-        int lookedAtIdx = FindUnitUnderCrosshair(units, unitCount, playerWorld);
+        int lookedAtIdx = CrosshairHit.FindIndex(units, unitCount, playerWorld);
 
         // Surveillance auto-balance scale — compute once for the batch
         // so every row's displayed f/f+s reflects the same scaling the
@@ -262,48 +258,6 @@ internal static class PanelDebug
             pos.Y += HudRowHeightPx * 0.5f;        // breathing room
             DrawLookedAtDetail(in units[lookedAtIdx], pos);
         }
-    }
-
-    /// <summary>Return the index of the unit whose plane-coords AABB
-    /// the player's forward ray actually hits, or -1 if no group is
-    /// under the crosshair. Among multiple hits the closest (smallest
-    /// positive t) wins.</summary>
-    private static int FindUnitUnderCrosshair(RenderUnit[] units, int unitCount, MatrixD playerWorld)
-    {
-        Vector3D eye = playerWorld.Translation;
-        Vector3D dir = playerWorld.Forward;
-        dir.Normalize();
-
-        int    best   = -1;
-        double bestT  = double.PositiveInfinity;
-
-        for (int i = 0; i < unitCount; i++)
-        {
-            var g = units[i].Group;
-            // Skip groups whose lead plane never resolved.
-            if (g.Normal.LengthSquared() <= 0.5) continue;
-
-            double denom = Vector3D.Dot(dir, g.Normal);
-            // Parallel rays / near-parallel: skip. Threshold guards
-            // against numerical noise giving a wildly-far intersection.
-            if (Math.Abs(denom) < 1e-6) continue;
-
-            double t = Vector3D.Dot(g.Origin - eye, g.Normal) / denom;
-            if (t <= 0.0) continue;       // behind the eye
-            if (t >= bestT) continue;     // already have a closer hit
-
-            Vector3D p = eye + dir * t;
-            Vector3D d = p - g.Origin;
-            double u = Vector3D.Dot(d, g.BasisU);
-            double v = Vector3D.Dot(d, g.BasisV);
-            if (u < g.UMin || u > g.UMax) continue;
-            if (v < g.VMin || v > g.VMax) continue;
-
-            bestT = t;
-            best  = i;
-        }
-
-        return best;
     }
 
     /// <summary>
@@ -524,29 +478,4 @@ internal static class PanelDebug
         }
     }
 
-    // ── Logging ───────────────────────────────────────────────────────
-
-    /// <summary>Write a line to the engine log with the plugin's
-    /// standard prefix. Thread-safe (MyLog.Default handles
-    /// synchronization).</summary>
-    public static void Log(string message)
-        => MyLog.Default.WriteLine(LogPrefix + message);
-
-    /// <summary>Write a line to the engine log identifying its source
-    /// site, prefixed with the plugin name and a colon-separated
-    /// site tag. Use for failures and notable transitions whose call
-    /// site should be visible in the log.</summary>
-    public static void Log(string site, string message)
-        => MyLog.Default.WriteLine(LogPrefix + site + ": " + message);
-
-    /// <summary>Log an exception with a contextual message. Includes
-    /// the exception type and message; full stack trace is written
-    /// via MyLog's standard exception channel.</summary>
-    public static void LogException(string site, Exception ex)
-    {
-        if (ex == null) return;
-        MyLog.Default.WriteLine(LogPrefix + site + ": "
-            + ex.GetType().Name + ": " + ex.Message);
-        MyLog.Default.WriteLine(ex.ToString());
-    }
 }

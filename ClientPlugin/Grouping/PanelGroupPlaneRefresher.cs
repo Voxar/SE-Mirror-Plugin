@@ -59,7 +59,7 @@ internal sealed class PanelGroupPlaneRefresher : IPanelGroupPlaneRefresher
             // local matrix), so the refreshed plane stays attached
             // to the visibly tilted mesh.
             MatrixD blockWorld = _actorMatrix.GetFreshestMatrix(blockEntity);
-            var world = PlaneTiltHelper.BuildTilted(in local, in blockWorld, lead.Config, _settings);
+            var world = WorldScreenPlane.From(in local, in blockWorld);
 
             g.Origin = world.Center;
             g.Normal = world.Normal;

@@ -2,13 +2,10 @@ namespace ClientPlugin;
 
 /// <summary>
 /// Strategy for picking the next unit from the remaining candidates in
-/// a batch's slot loop. Different slots use different strategies:
-/// <list type="bullet">
-///   <item>Slot 0 → <see cref="CenterFactorSelector"/> (purely "what the
-///         player is looking at" — no staleness term)</item>
-///   <item>Slot 1+ → <see cref="StaleWeightedSelector"/> (staleness ×
-///         centerFactor ÷ distSq, so far-but-stale panels still refresh)</item>
-/// </list>
+/// a batch's slot loop. Currently wired with one impl —
+/// <see cref="FocusAndStalenessSelector"/> — used for both slot 0 and
+/// slot 1+ (it folds the looked-at-mirror hard-lock and the staleness-
+/// weighted argmax into one selector).
 /// </summary>
 internal interface IPanelSlotSelector
 {

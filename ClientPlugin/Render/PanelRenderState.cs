@@ -59,13 +59,14 @@ internal readonly struct PanelRenderState
 
     /// <summary>Build the panel-render state for a camera-mode surface.</summary>
     public static PanelRenderState ForCamera(in PanelRenderState mainSnapshot,
-                                             MatrixD view, Matrix projection,
+                                             MatrixD view,
+                                             Matrix projection, Matrix projectionInfiniteFar,
                                              Vector3D cameraPosition,
                                              float fovH, float fovV,
                                              float farPlaneMeters,
                                              float farFarPlaneMeters,
                                              bool enableShadows) => new(
-        camera:             CameraMatrices.ForCamera(view, projection,
+        camera:             CameraMatrices.ForCamera(view, projection, projectionInfiniteFar,
                                                      cameraPosition, fovH, fovV,
                                                      farPlaneMeters, farFarPlaneMeters),
         settings:           RenderSettings.ForCamera(mainSnapshot.Settings, enableShadows),

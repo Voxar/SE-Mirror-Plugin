@@ -117,11 +117,18 @@ internal readonly struct CameraMatrices
             lastMomentUpdateIndex: 0);
 
     /// <summary>Build camera matrices for a camera-block-mode render.
-    /// Uses a standard reverse-Z infinite RH perspective (no off-axis
-    /// trickery, no X-flip); FOV is sent through so SE rebuilds the
-    /// projection if it needs to.</summary>
+    /// Routes through SE's off-axis sentinel path (msg.FOV=0) so SE uses
+    /// our supplied projection verbatim instead of rebuilding it from
+    /// msg.FOV + ViewportResolution-aspect at MyRender11.cs:1859. The
+    /// rebuild is what made toggling DistanceResolutionScale change the
+    /// rendered FOV: bucket aspect ≠ main-view aspect, so the engine
+    /// computed two different projections for the same camera. Off-axis
+    /// path bypasses that. <paramref name="projection"/> must be a
+    /// finite-far render projection at LCD aspect;
+    /// <paramref name="projectionInfiniteFar"/> the matching infinite-
+    /// far for skybox.</summary>
     public static CameraMatrices ForCamera(
-        MatrixD view, Matrix projection,
+        MatrixD view, Matrix projection, Matrix projectionInfiniteFar,
         Vector3D cameraPosition,
         float fovH, float fovV,
         float farPlaneMeters,
@@ -129,7 +136,7 @@ internal readonly struct CameraMatrices
         => new CameraMatrices(
             viewMatrix:           view,
             projection:           projection,
-            projectionFar:        projection,
+            projectionFar:        projectionInfiniteFar,
             cameraPosition:       cameraPosition,
             fovH:                 fovH,
             fovV:                 fovV,
@@ -139,7 +146,7 @@ internal readonly struct CameraMatrices
             farFarPlane:          farFarPlaneMeters,
             projectionOffsetX:    0f,
             projectionOffsetY:    0f,
-            isOffAxisProjection:  false,
+            isOffAxisProjection:  true,
             smooth:               false,
             lastMomentUpdateIndex: 0);
 

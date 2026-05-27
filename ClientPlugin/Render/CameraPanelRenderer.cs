@@ -58,35 +58,40 @@ internal sealed class CameraPanelRenderer : IPanelRenderer
                 return false;
             }
 
-            // 3. Standard reverse-Z infinite RH perspective.
+            // 3. Build the projections SE will use verbatim. We route
+            // cameras through the off-axis sentinel (msg.FOV=0) so SE
+            // uses these matrices without rebuilding from
+            // ViewportResolution-aspect — that rebuild was the source
+            // of the FOV change when toggling DistanceResolutionScale
+            // (bucket aspect ≠ main-view aspect → two different
+            // projections from the same camera).
+            //
+            // Tradeoff: SE's ViewFrustumClippedD uses
+            // envMatrices.OriginalProjection = msg.ProjectionMatrix
+            // for cull-frustum construction (MyRender11.cs:1890). In
+            // the off-axis path the render and the cull frustum share
+            // this one matrix, so the cull-widen trick the FOV>0 path
+            // allowed (widened msg.ProjectionMatrix for culling while
+            // SE rebuilt a strict render projection) is no longer
+            // available — edge geometry can pop at panel borders.
             var sz = off.Rtv.Size;
             float aspect = sz.Y > 0 ? (float)sz.X / sz.Y : 1f;
             const float nearPlane = 0.1f;
 
             // FovH derived from FovV + aspect so downstream consumers
-            // (skybox, distance heuristics) see a consistent horizontal
+            // (em.FovH/em.FovV writeback in CameraMatrices.Apply,
+            // skybox, distance heuristics) see a consistent horizontal
             // half-angle.
             float fovH = (float)(2.0 * Math.Atan(Math.Tan(cv.FovV / 2.0) * aspect));
 
-            // We build TWO projections:
-            //  (a) `projection` — passed as msg.ProjectionMatrix; SE
-            //      stores it as envMatrices.OriginalProjection and
-            //      derives the cull frustum from it. Widened by 10%
-            //      in tan(fov/2) so geometry exactly grazing the LCD
-            //      edges (which the strict half-space clip planes
-            //      would otherwise reject) makes it past culling and
-            //      gets a chance to rasterise.
-            //  (b) the render projection — SE rebuilds it itself from
-            //      msg.FOV + viewport aspect + near (FOV>0 path in
-            //      SetupCameraMatricesInternal). That stays at the
-            //      exact LCD FOV via the FovH we pass; the widened
-            //      frustum (a) doesn't enlarge what's actually drawn.
-            const double FrustumWidenFactor = 2.00;
-            float wideFovV = (float)(2.0 * Math.Atan(Math.Tan(cv.FovV / 2.0) * FrustumWidenFactor));
-            // Finite-far reverse-Z so the far clip setting actually
-            // clips geometry (cull, not just LOD/shadow heuristics).
+            // Finite-far reverse-Z render projection at LCD aspect.
             Matrix projection = Matrix.CreatePerspectiveFovRhComplementary(
-                wideFovV, aspect, nearPlane, ctx.EffectiveFarPlaneM);
+                cv.FovV, aspect, nearPlane, ctx.EffectiveFarPlaneM);
+            // Infinite-far at LCD aspect for skybox (SE reads this as
+            // envMatrices.OriginalProjectionFar / projectionForSkybox
+            // in the off-axis path, MyRender11.cs:1862, 1876).
+            Matrix projectionInfiniteFar = Matrix.CreatePerspectiveFovRhInfiniteComplementary(
+                cv.FovV, aspect, nearPlane);
 
             // 4. Build panel state. cv.World is a rigid transform
             // (orthogonal rotation + translation) so we use CreateLookAt
@@ -100,7 +105,9 @@ internal sealed class CameraPanelRenderer : IPanelRenderer
                 cv.World.Up);
             var panelState = PanelRenderState.ForCamera(
                 in ctx.MainState,
-                view: viewD, projection: projection,
+                view: viewD,
+                projection: projection,
+                projectionInfiniteFar: projectionInfiniteFar,
                 cameraPosition: cv.World.Translation,
                 fovH: fovH, fovV: cv.FovV,
                 farPlaneMeters:    ctx.EffectiveFarPlaneM,

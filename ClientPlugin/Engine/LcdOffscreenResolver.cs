@@ -7,14 +7,14 @@ using IMyCubeBlock = VRage.Game.ModAPI.Ingame.IMyCubeBlock;
 namespace ClientPlugin;
 
 /// <summary>
-/// Default <see cref="ILcdOffscreenResolver"/> implementation. Walks
+/// Default <see cref="LcdOffscreenResolver"/> implementation. Walks
 /// the block's <c>MyRenderComponentScreenAreas.m_screenAreas</c>, picks
 /// the entry matching <paramref name="surfaceIdx"/> (with a fallback to
 /// the first non-degenerate area if the index is out of range), and
 /// looks the offscreen up by name in
 /// <see cref="MyManagers.FileTextures"/>.
 /// </summary>
-internal sealed class LcdOffscreenResolver : ILcdOffscreenResolver
+internal sealed class LcdOffscreenResolver
 {
     public bool TryResolve(IMyCubeBlock block, int surfaceIdx, out LcdOffscreenInfo info)
     {

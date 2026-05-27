@@ -7,7 +7,7 @@ using VRageRender;     // MyRender11.ResolutionI
 namespace ClientPlugin;
 
 /// <summary>
-/// Default <see cref="IPanelGroupBuilder"/>: rebuilds groups only when
+/// Default <see cref="PanelGroupBuilder"/>: rebuilds groups only when
 /// the surface registry version changes. Walks the current snapshot
 /// once, places each surface in the first compatible coplanar same-
 /// grid mirror group or creates a new solo group otherwise.
@@ -29,15 +29,15 @@ namespace ClientPlugin;
 ///         producing visible blur.</item>
 /// </list>
 /// </summary>
-internal sealed class PanelGroupBuilder : IPanelGroupBuilder
+internal sealed class PanelGroupBuilder
 {
     private const double QuantizeUnitsPerMeter = 1024.0;   // ~1 mm tolerance on normals
     private const double DistanceToleranceM    = 0.05;     // 10 cm between coplanar walls
     private const int    ApproxTargetPx        = 512;       // typical native LCD pixel dim
     private const double TouchingTolerance     = 0.10;     // edges within 10 cm = "touching"
 
-    private readonly IScreenPlaneResolver  _planeResolver;
-    private readonly IActorMatrixSource    _actorMatrix;
+    private readonly ScreenPlaneResolver  _planeResolver;
+    private readonly ActorMatrixSource    _actorMatrix;
     private readonly IMirrorPluginSettings _settings;
 
     private readonly List<PanelGroup> _groups = new();
@@ -66,8 +66,8 @@ internal sealed class PanelGroupBuilder : IPanelGroupBuilder
     private bool _hasUnresolvedMirrorPlanes;
 
     public PanelGroupBuilder(
-        IScreenPlaneResolver  planeResolver,
-        IActorMatrixSource    actorMatrix,
+        ScreenPlaneResolver  planeResolver,
+        ActorMatrixSource    actorMatrix,
         IMirrorPluginSettings settings)
     {
         _planeResolver = planeResolver ?? throw new ArgumentNullException(nameof(planeResolver));
@@ -75,7 +75,7 @@ internal sealed class PanelGroupBuilder : IPanelGroupBuilder
         _settings      = settings      ?? throw new ArgumentNullException(nameof(settings));
     }
 
-    public IReadOnlyList<PanelGroup> GetGroups(ISurfaceRegistry registry)
+    public IReadOnlyList<PanelGroup> GetGroups(SurfaceRegistry registry)
     {
         int currentVersion = registry.Version;
         if (currentVersion == _lastSeenVersion && !_hasUnresolvedMirrorPlanes)
@@ -90,7 +90,7 @@ internal sealed class PanelGroupBuilder : IPanelGroupBuilder
 
     // ── Rebuild ──────────────────────────────────────────────────────
 
-    private void Rebuild(ISurfaceRegistry registry)
+    private void Rebuild(SurfaceRegistry registry)
     {
         // Clear and break PanelSurface back-references so a surface
         // doesn't keep pointing at a stale group that we're about to

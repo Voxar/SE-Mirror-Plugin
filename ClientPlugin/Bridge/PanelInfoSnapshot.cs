@@ -5,8 +5,8 @@ namespace ClientPlugin;
 
 /// <summary>
 /// One snapshot of the mod's <c>PanelRegistry.PanelInfo</c>, projected
-/// into plugin-side types. Built by <see cref="IModBridge"/> implementations
-/// once per <see cref="ISurfaceRegistry.Sync"/> call — never lives past
+/// into plugin-side types. Built by <see cref="ReflectionModBridge"/> implementations
+/// once per <see cref="SurfaceRegistry.Sync"/> call — never lives past
 /// the sync that produced it.
 /// </summary>
 internal readonly struct PanelInfoSnapshot

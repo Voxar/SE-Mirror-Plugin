@@ -3,7 +3,7 @@ using VRageMath;
 namespace ClientPlugin;
 
 /// <summary>
-/// Result of <see cref="ICameraBlockResolver.TryResolve"/>: the camera
+/// Result of <see cref="CameraBlockResolver.TryResolve"/>: the camera
 /// block's render-side world matrix (with the same +0.2 m forward
 /// offset that <c>MyCameraBlock.GetViewMatrix</c> applies) plus the
 /// per-LCD-zoomed vertical FOV in radians.

@@ -3,18 +3,18 @@ using System;
 namespace ClientPlugin;
 
 /// <summary>
-/// Default <see cref="IPanelStatusSink"/>: forwards status writes
-/// through <see cref="IModBridge.WriteStatus"/> to the mod-side
+/// Default <see cref="ModBridgeStatusSink"/>: forwards status writes
+/// through <see cref="ReflectionModBridge.WriteStatus"/> to the mod-side
 /// PanelRegistry. Drops duplicate status updates per surface so we
 /// don't churn the concurrent dictionary on the mod side when the
 /// plugin reports the same value every frame (typical "rendered" /
 /// "rendered" / "rendered" sequence).
 /// </summary>
-internal sealed class ModBridgeStatusSink : IPanelStatusSink
+internal sealed class ModBridgeStatusSink
 {
-    private readonly IModBridge _bridge;
+    private readonly ReflectionModBridge _bridge;
 
-    public ModBridgeStatusSink(IModBridge bridge)
+    public ModBridgeStatusSink(ReflectionModBridge bridge)
     {
         _bridge = bridge ?? throw new ArgumentNullException(nameof(bridge));
     }

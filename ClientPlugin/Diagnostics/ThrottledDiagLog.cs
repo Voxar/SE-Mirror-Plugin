@@ -4,7 +4,7 @@ using VRage.Utils;
 namespace ClientPlugin;
 
 /// <summary>
-/// <see cref="IDiagLog"/> that throttles per call-site to one log
+/// <see cref="ThrottledDiagLog"/> that throttles per call-site to one log
 /// entry per N ticks. Prevents a "always fires" message from drowning
 /// the engine log every frame at 60 fps.
 ///
@@ -13,7 +13,7 @@ namespace ClientPlugin;
 /// render summary AND offscreen-missing notes) — without per-site
 /// throttling, the second call would be swallowed.</para>
 /// </summary>
-internal sealed class ThrottledDiagLog : IDiagLog
+internal sealed class ThrottledDiagLog
 {
     private const int DefaultThrottleTicks = 60;
     private readonly Dictionary<string, long> _lastTickBySite = new();

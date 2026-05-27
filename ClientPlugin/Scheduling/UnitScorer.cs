@@ -5,7 +5,7 @@ using VRageMath;
 namespace ClientPlugin;
 
 /// <summary>
-/// Default <see cref="IUnitScorer"/>. Computes three per-group inputs
+/// Default <see cref="UnitScorer"/>. Computes three per-group inputs
 /// the slot selectors read:
 /// <list type="bullet">
 ///   <item><see cref="RenderUnit.DistSq"/> — closest-member block
@@ -28,7 +28,7 @@ namespace ClientPlugin;
 /// in peripheral has high Coverage but low CenterFactor. Selectors
 /// can use either or both depending on intent.</para>
 /// </summary>
-internal sealed class UnitScorer : IUnitScorer
+internal sealed class UnitScorer
 {
     /// <summary>Floor for <see cref="RenderUnit.CenterFactor"/>. A
     /// slightly off-axis but freshly-stale group can still beat a

@@ -38,18 +38,18 @@ public class Plugin : IPlugin
     /// <see cref="Dispose"/> and re-construction.</summary>
     internal static Plugin Current => Instance;
 
-    internal IPanelBatchOrchestrator Orchestrator => _orchestrator;
-    internal IFirstPersonHeadFix     HeadFix      => _headFix;
-    internal IPanelGroupBuilder      GroupBuilder => _groupBuilder;
+    internal PanelBatchOrchestrator Orchestrator => _orchestrator;
+    internal FirstPersonHeadFix     HeadFix      => _headFix;
+    internal PanelGroupBuilder      GroupBuilder => _groupBuilder;
 
     // ── Services (owned, disposed in reverse order) ──────────────
 
     private ReflectionModBridge       _modBridge;
     private SurfaceRegistry           _surfaceRegistry;
-    private IFirstPersonHeadFix       _headFix;
+    private FirstPersonHeadFix       _headFix;
     private MirrorShader              _blitShader;
-    private IPanelGroupBuilder        _groupBuilder;
-    private IPanelBatchOrchestrator   _orchestrator;
+    private PanelGroupBuilder        _groupBuilder;
+    private PanelBatchOrchestrator   _orchestrator;
     private Harmony                   _harmony;
 
     private SettingsGenerator settingsGenerator;

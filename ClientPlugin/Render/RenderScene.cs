@@ -24,11 +24,11 @@ namespace ClientPlugin;
 /// invocation with <c>in</c>-passed struct lets the JIT devirtualize
 /// the call and avoid a per-call closure allocation.</para>
 /// </summary>
-internal sealed class RenderScene : IPanelRenderPipeline
+internal sealed class RenderScene
 {
-    private readonly IFirstPersonHeadFix _headFix;
+    private readonly FirstPersonHeadFix _headFix;
 
-    public RenderScene(IFirstPersonHeadFix headFix)
+    public RenderScene(FirstPersonHeadFix headFix)
     {
         _headFix = headFix ?? throw new ArgumentNullException(nameof(headFix));
     }

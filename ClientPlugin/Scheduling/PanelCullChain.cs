@@ -32,7 +32,7 @@ internal sealed class PanelCullChain
     /// <c>PanelBatchOrchestrator.OcclusionCullPanelToPanel</c> after
     /// this chain, since it needs the projected NDC quad which is
     /// computed by <see cref="UnitScorer"/>.</para></summary>
-    public static PanelCullChain Default(IMirrorPluginSettings settings, IPanelStatusSink statusSink) => new(
+    public static PanelCullChain Default(IMirrorPluginSettings settings, ModBridgeStatusSink statusSink) => new(
         new MaxScreenRenderDistanceCull(),
         new RangeCull(settings, statusSink),
         new FacingCull(),

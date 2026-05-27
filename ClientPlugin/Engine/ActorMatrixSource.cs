@@ -5,12 +5,12 @@ using VRageMath;
 namespace ClientPlugin;
 
 /// <summary>
-/// Default <see cref="IActorMatrixSource"/>: walks the entity's render-
+/// Default <see cref="ActorMatrixSource"/>: walks the entity's render-
 /// component ids, finds the first valid <see cref="MyActor"/>, forces a
 /// world-matrix update against its parent's last-world, and returns the
 /// resulting <c>LastWorldMatrix</c>.
 /// </summary>
-internal sealed class ActorMatrixSource : IActorMatrixSource
+internal sealed class ActorMatrixSource
 {
     public MatrixD GetFreshestMatrix(MyEntity entity)
     {

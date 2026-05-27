@@ -26,7 +26,7 @@ namespace ClientPlugin;
 ///         a boost at sub-1m distances.</item>
 /// </list>
 /// </summary>
-internal sealed class FocusScore : IRenderUnitScore
+internal sealed class FocusScore
 {
     public double Compute(in RenderUnit u, long tickCounter)
     {

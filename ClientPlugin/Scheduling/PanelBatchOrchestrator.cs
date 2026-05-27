@@ -6,12 +6,12 @@ using VRageRender;
 namespace ClientPlugin;
 
 /// <summary>
-/// Default <see cref="IPanelBatchOrchestrator"/>. Pre-allocates every
+/// Default <see cref="PanelBatchOrchestrator"/>. Pre-allocates every
 /// per-batch buffer (units array, picked flags, cached BoundingFrustum)
 /// so the render loop generates zero managed allocations in steady
 /// state.
 /// </summary>
-internal sealed class PanelBatchOrchestrator : IPanelBatchOrchestrator
+internal sealed class PanelBatchOrchestrator
 {
     /// <summary>cos(angle) lower bound for the look-direction cull.
     /// 0.26 ≈ cos(75°) — a peripheral mirror at 74° passes, at 76°
@@ -42,18 +42,18 @@ internal sealed class PanelBatchOrchestrator : IPanelBatchOrchestrator
     /// follows the resolution override or this factor.</summary>
     private const float SecondarySlotFarPlaneFactor = 1.0f;
 
-    private readonly ISurfaceRegistry           _registry;
-    private readonly IPanelGroupBuilder        _groupBuilder;
-    private readonly IPanelGroupPlaneRefresher _planeRefresher;
-    private readonly IUnitScorer                _scorer;
+    private readonly SurfaceRegistry           _registry;
+    private readonly PanelGroupBuilder        _groupBuilder;
+    private readonly PanelGroupPlaneRefresher _planeRefresher;
+    private readonly UnitScorer                _scorer;
     private readonly PanelCullChain             _cullChain;
-    private readonly IPanelSlotSelector         _slot0Selector;
-    private readonly IPanelSlotSelector         _slot1PlusSelector;
+    private readonly FocusAndStalenessSelector         _slot0Selector;
+    private readonly FocusAndStalenessSelector         _slot1PlusSelector;
     private readonly IPanelRenderer             _panelDispatcher;
-    private readonly IMirrorGroupRenderer       _groupRenderer;
-    private readonly ILcdOffscreenResolver      _offscreenResolver;
+    private readonly MirrorGroupRenderer       _groupRenderer;
+    private readonly LcdOffscreenResolver      _offscreenResolver;
     private readonly LcdRtBucketPolicy          _bucketPolicy;
-    private readonly IPanelStatusSink           _statusSink;
+    private readonly ModBridgeStatusSink           _statusSink;
     private readonly IMirrorPluginSettings      _settings;
     private readonly ThrottledDiagLog           _diag;
 
@@ -72,18 +72,18 @@ internal sealed class PanelBatchOrchestrator : IPanelBatchOrchestrator
     private bool     _hasPrevPlayerPos;
 
     public PanelBatchOrchestrator(
-        ISurfaceRegistry           registry,
-        IPanelGroupBuilder        groupBuilder,
-        IPanelGroupPlaneRefresher planeRefresher,
-        IUnitScorer                scorer,
+        SurfaceRegistry           registry,
+        PanelGroupBuilder        groupBuilder,
+        PanelGroupPlaneRefresher planeRefresher,
+        UnitScorer                scorer,
         PanelCullChain             cullChain,
-        IPanelSlotSelector         slot0Selector,
-        IPanelSlotSelector         slot1PlusSelector,
+        FocusAndStalenessSelector         slot0Selector,
+        FocusAndStalenessSelector         slot1PlusSelector,
         IPanelRenderer             panelDispatcher,
-        IMirrorGroupRenderer       groupRenderer,
-        ILcdOffscreenResolver      offscreenResolver,
+        MirrorGroupRenderer       groupRenderer,
+        LcdOffscreenResolver      offscreenResolver,
         LcdRtBucketPolicy          bucketPolicy,
-        IPanelStatusSink           statusSink,
+        ModBridgeStatusSink           statusSink,
         IMirrorPluginSettings      settings,
         ThrottledDiagLog           diag)
     {

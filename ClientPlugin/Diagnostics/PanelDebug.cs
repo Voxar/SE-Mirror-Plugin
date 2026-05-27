@@ -81,11 +81,11 @@ internal static class PanelDebug
 
     // ── HUD state (render-thread only) ────────────────────────────────
 
-    private static IRenderUnitScore           s_primaryScore;
+    private static FocusScore           s_primaryScore;
     private static FocusAndStalenessSelector  s_picker;
     private static LcdRtBucketPolicy          s_bucketPolicy;
     private static IMirrorPluginSettings      s_settings;
-    private static ILcdOffscreenResolver      s_offscreenResolver;
+    private static LcdOffscreenResolver      s_offscreenResolver;
     private static int[]                      s_sortedIdx = Array.Empty<int>();
 
     // ── HUD: configuration ────────────────────────────────────────────
@@ -94,11 +94,11 @@ internal static class PanelDebug
     /// resolver. Called once from <c>Plugin.Compose</c>. Safe to re-call
     /// with new instances (e.g. on plugin reload).</summary>
     public static void ConfigureHud(
-        IRenderUnitScore           primaryScore,
+        FocusScore           primaryScore,
         FocusAndStalenessSelector  picker,
         LcdRtBucketPolicy          bucketPolicy,
         IMirrorPluginSettings      settings,
-        ILcdOffscreenResolver      offscreenResolver)
+        LcdOffscreenResolver      offscreenResolver)
     {
         s_primaryScore      = primaryScore      ?? throw new ArgumentNullException(nameof(primaryScore));
         s_picker            = picker            ?? throw new ArgumentNullException(nameof(picker));

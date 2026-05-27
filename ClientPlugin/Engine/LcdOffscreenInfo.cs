@@ -3,7 +3,7 @@ using VRage.Render11.Resources;
 namespace ClientPlugin;
 
 /// <summary>
-/// Result of <see cref="ILcdOffscreenResolver.TryResolve"/>: the LCD's
+/// Result of <see cref="LcdOffscreenResolver.TryResolve"/>: the LCD's
 /// per-surface offscreen RT plus the metadata that lets
 /// <see cref="PanelSurface"/> decide whether a cached lookup is still
 /// valid.

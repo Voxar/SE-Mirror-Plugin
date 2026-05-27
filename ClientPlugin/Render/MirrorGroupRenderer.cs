@@ -11,11 +11,11 @@ namespace ClientPlugin;
 /// the pipeline once, then fans out a per-member sub-rect blit so
 /// each LCD gets its own slice of the shared post-process result.
 /// </summary>
-internal sealed class MirrorGroupRenderer : IMirrorGroupRenderer
+internal sealed class MirrorGroupRenderer
 {
-    private readonly IPanelRenderPipeline  _pipeline;
+    private readonly RenderScene  _pipeline;
     private readonly MirrorShader          _shader;
-    private readonly ILcdOffscreenResolver _offscreenResolver;
+    private readonly LcdOffscreenResolver _offscreenResolver;
     private readonly IMirrorPluginSettings _settings;
 
     // Pre-allocated scratch array for resolved offscreens. Sized up
@@ -24,9 +24,9 @@ internal sealed class MirrorGroupRenderer : IMirrorGroupRenderer
     private IRtvBindable[] _scratchOffscreens = new IRtvBindable[8];
 
     public MirrorGroupRenderer(
-        IPanelRenderPipeline  pipeline,
+        RenderScene  pipeline,
         MirrorShader          shader,
-        ILcdOffscreenResolver offscreenResolver,
+        LcdOffscreenResolver offscreenResolver,
         IMirrorPluginSettings settings)
     {
         _pipeline          = pipeline          ?? throw new ArgumentNullException(nameof(pipeline));

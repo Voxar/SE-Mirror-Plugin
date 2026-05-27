@@ -16,19 +16,19 @@ namespace ClientPlugin;
 /// </summary>
 internal sealed class MirrorPanelRenderer : IPanelRenderer
 {
-    private readonly IPanelRenderPipeline  _pipeline;
+    private readonly RenderScene  _pipeline;
     private readonly MirrorShader          _shader;
-    private readonly ILcdOffscreenResolver _offscreenResolver;
-    private readonly IScreenPlaneResolver  _planeResolver;
-    private readonly IActorMatrixSource    _actorMatrix;
+    private readonly LcdOffscreenResolver _offscreenResolver;
+    private readonly ScreenPlaneResolver  _planeResolver;
+    private readonly ActorMatrixSource    _actorMatrix;
     private readonly IMirrorPluginSettings _settings;
 
     public MirrorPanelRenderer(
-        IPanelRenderPipeline  pipeline,
+        RenderScene  pipeline,
         MirrorShader          shader,
-        ILcdOffscreenResolver offscreenResolver,
-        IScreenPlaneResolver  planeResolver,
-        IActorMatrixSource    actorMatrix,
+        LcdOffscreenResolver offscreenResolver,
+        ScreenPlaneResolver  planeResolver,
+        ActorMatrixSource    actorMatrix,
         IMirrorPluginSettings settings)
     {
         _pipeline          = pipeline          ?? throw new ArgumentNullException(nameof(pipeline));

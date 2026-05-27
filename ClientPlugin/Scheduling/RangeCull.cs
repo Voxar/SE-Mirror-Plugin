@@ -13,9 +13,9 @@ namespace ClientPlugin;
 internal sealed class RangeCull : IPanelCull
 {
     private readonly IMirrorPluginSettings _settings;
-    private readonly IPanelStatusSink      _statusSink;
+    private readonly ModBridgeStatusSink      _statusSink;
 
-    public RangeCull(IMirrorPluginSettings settings, IPanelStatusSink statusSink)
+    public RangeCull(IMirrorPluginSettings settings, ModBridgeStatusSink statusSink)
     {
         _settings   = settings   ?? throw new ArgumentNullException(nameof(settings));
         _statusSink = statusSink ?? throw new ArgumentNullException(nameof(statusSink));

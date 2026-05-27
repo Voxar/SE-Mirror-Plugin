@@ -41,7 +41,7 @@ namespace ClientPlugin;
 /// frames precisely when smoothness matters most. Other mirrors only
 /// refresh once the player stops moving or looks away.</para>
 /// </summary>
-internal sealed class FocusAndStalenessSelector : IPanelSlotSelector
+internal sealed class FocusAndStalenessSelector
 {
     private const double StalenessWeight = 0.00001;
 
@@ -99,13 +99,13 @@ internal sealed class FocusAndStalenessSelector : IPanelSlotSelector
     private const int StationaryMirrorWeight = 2;
     private const int StationaryCameraWeight = 1;
 
-    private readonly IRenderUnitScore _focusScore;
+    private readonly FocusScore _focusScore;
 
     // Phase counter for the stationary weighted-rotation block.
     // Advances on every entry to that branch (mirror or camera pick).
     private int _stationaryCursor;
 
-    public FocusAndStalenessSelector(IRenderUnitScore focusScore)
+    public FocusAndStalenessSelector(FocusScore focusScore)
     {
         _focusScore = focusScore ?? throw new ArgumentNullException(nameof(focusScore));
     }

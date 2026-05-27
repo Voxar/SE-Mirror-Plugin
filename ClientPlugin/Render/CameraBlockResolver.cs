@@ -10,7 +10,7 @@ using IMyFunctionalBlock = Sandbox.ModAPI.IMyFunctionalBlock;
 namespace ClientPlugin;
 
 /// <summary>
-/// Default <see cref="ICameraBlockResolver"/>. The mod hands us the
+/// Default <see cref="CameraBlockResolver"/>. The mod hands us the
 /// camera-block reference directly via the bridge (<see cref="PanelConfig.CameraBlock"/>),
 /// so this resolver no longer does any per-frame entity-table lookup
 /// — it just validates the reference still represents a usable block
@@ -24,7 +24,7 @@ namespace ClientPlugin;
 /// "camera lookup failed" forever on a perfectly fine camera.
 /// Reference-in-hand removes that class of failure entirely.</para>
 /// </summary>
-internal sealed class CameraBlockResolver : ICameraBlockResolver
+internal sealed class CameraBlockResolver
 {
     // Mirror of MirrorCameraMod.Settings.SurfaceSettings's zoom range.
     // Plugin can't reference the mod assembly, so these constants live
@@ -36,9 +36,9 @@ internal sealed class CameraBlockResolver : ICameraBlockResolver
     // (modded camera blocks that don't derive from MyCameraBlock).
     private const float FallbackFovRad = 1.221730f;
 
-    private readonly IActorMatrixSource _actorMatrix;
+    private readonly ActorMatrixSource _actorMatrix;
 
-    public CameraBlockResolver(IActorMatrixSource actorMatrix)
+    public CameraBlockResolver(ActorMatrixSource actorMatrix)
     {
         _actorMatrix = actorMatrix ?? throw new ArgumentNullException(nameof(actorMatrix));
     }
@@ -88,7 +88,7 @@ internal sealed class CameraBlockResolver : ICameraBlockResolver
         }
 
         // Render-side matrix for jitter-free view (see
-        // IActorMatrixSource doc). Apply the +0.2 m forward shift
+        // ActorMatrixSource doc). Apply the +0.2 m forward shift
         // AFTER the matrix is fetched so we don't accidentally mutate
         // the actor's cached state.
         MatrixD world = _actorMatrix.GetFreshestMatrix(ent);

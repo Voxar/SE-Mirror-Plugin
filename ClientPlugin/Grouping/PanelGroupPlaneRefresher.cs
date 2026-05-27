@@ -7,7 +7,7 @@ using VRageMath;
 namespace ClientPlugin;
 
 /// <summary>
-/// Default <see cref="IPanelGroupPlaneRefresher"/>. For each group
+/// Default <see cref="PanelGroupPlaneRefresher"/>. For each group
 /// that carries a screen plane (whether mirror or camera mode), re-
 /// derives the world-space basis (Origin, Normal, BasisU, BasisV)
 /// from the lead member's freshest world matrix applied to its mesh-
@@ -17,15 +17,15 @@ namespace ClientPlugin;
 /// just re-attempt the same failed resolve every frame.
 /// Cheap: O(groups × const).
 /// </summary>
-internal sealed class PanelGroupPlaneRefresher : IPanelGroupPlaneRefresher
+internal sealed class PanelGroupPlaneRefresher
 {
-    private readonly IScreenPlaneResolver  _planeResolver;
-    private readonly IActorMatrixSource    _actorMatrix;
+    private readonly ScreenPlaneResolver  _planeResolver;
+    private readonly ActorMatrixSource    _actorMatrix;
     private readonly IMirrorPluginSettings _settings;
 
     public PanelGroupPlaneRefresher(
-        IScreenPlaneResolver  planeResolver,
-        IActorMatrixSource    actorMatrix,
+        ScreenPlaneResolver  planeResolver,
+        ActorMatrixSource    actorMatrix,
         IMirrorPluginSettings settings)
     {
         _planeResolver = planeResolver ?? throw new ArgumentNullException(nameof(planeResolver));

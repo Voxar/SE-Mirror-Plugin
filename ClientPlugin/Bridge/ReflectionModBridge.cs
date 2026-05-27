@@ -22,7 +22,7 @@ namespace ClientPlugin;
 /// once per sim tick. Resolution overhead is paid once on session
 /// start.
 /// </summary>
-internal sealed class ReflectionModBridge : IModBridge
+internal sealed class ReflectionModBridge
 {
     private const int MinSupportedModVersion = 4;
     private const int MaxSupportedModVersion = 4;

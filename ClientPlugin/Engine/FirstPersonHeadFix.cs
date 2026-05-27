@@ -11,7 +11,7 @@ using VRageRender;
 namespace ClientPlugin;
 
 /// <summary>
-/// Default <see cref="IFirstPersonHeadFix"/> implementation. Polls the
+/// Polls the
 /// FPV state at a fixed cadence on the sim thread, publishes the
 /// result via a volatile <see cref="Boxed{T}"/>, and on the render
 /// thread clears <c>SkipInMainView | SkipInForward</c> on every
@@ -24,7 +24,7 @@ namespace ClientPlugin;
 /// the next mask pass is benign and actually fixes a subtle third-
 /// person regression that explicit restore caused.</para>
 /// </summary>
-internal sealed class FirstPersonHeadFix : IFirstPersonHeadFix
+internal sealed class FirstPersonHeadFix
 {
     private const int DetectionInterval = 10;
     private uint _tickCounter;

@@ -36,7 +36,7 @@ namespace ClientPlugin;
 ///         the mesh.</item>
 /// </list>
 /// </summary>
-internal sealed class ScreenPlaneResolver : IScreenPlaneResolver
+internal sealed class ScreenPlaneResolver
 {
     // Process-wide cache of SUCCESSFUL resolves only. The plane
     // geometry for a (BlockDef, material) is deterministic — once

@@ -13,17 +13,17 @@ namespace ClientPlugin;
 /// </summary>
 internal sealed class CameraPanelRenderer : IPanelRenderer
 {
-    private readonly IPanelRenderPipeline  _pipeline;
+    private readonly RenderScene  _pipeline;
     private readonly MirrorShader          _shader;
-    private readonly ILcdOffscreenResolver _offscreenResolver;
-    private readonly ICameraBlockResolver  _cameraResolver;
+    private readonly LcdOffscreenResolver _offscreenResolver;
+    private readonly CameraBlockResolver  _cameraResolver;
     private readonly IMirrorPluginSettings _settings;
 
     public CameraPanelRenderer(
-        IPanelRenderPipeline  pipeline,
+        RenderScene  pipeline,
         MirrorShader          shader,
-        ILcdOffscreenResolver offscreenResolver,
-        ICameraBlockResolver  cameraResolver,
+        LcdOffscreenResolver offscreenResolver,
+        CameraBlockResolver  cameraResolver,
         IMirrorPluginSettings settings)
     {
         _pipeline          = pipeline          ?? throw new ArgumentNullException(nameof(pipeline));

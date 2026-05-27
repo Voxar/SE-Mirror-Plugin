@@ -6,7 +6,7 @@ namespace ClientPlugin;
 
 /// <summary>
 /// Owns the lifecycle of <see cref="PanelSurface"/> instances. The mod's
-/// terminal-UI changes flow through <see cref="IModBridge"/> into the
+/// terminal-UI changes flow through <see cref="ReflectionModBridge"/> into the
 /// registry once per sim tick; long-lived plugin state (scheduling
 /// counters, render-thread caches, group membership) survives across
 /// config edits because the same <see cref="PanelSurface"/> instance is
@@ -19,9 +19,9 @@ namespace ClientPlugin;
 ///         current snapshot reference; Sync swaps it atomically).</item>
 /// </list>
 /// </summary>
-internal sealed class SurfaceRegistry : ISurfaceRegistry
+internal sealed class SurfaceRegistry
 {
-    private readonly IModBridge _bridge;
+    private readonly ReflectionModBridge _bridge;
 
     // Master state — sim-thread only.
     private readonly Dictionary<long, PanelSurface> _surfaces = new();
@@ -37,9 +37,9 @@ internal sealed class SurfaceRegistry : ISurfaceRegistry
 
     public int Version => Volatile.Read(ref _version);
 
-    private readonly IPanelStatusSink _statusSink;
+    private readonly ModBridgeStatusSink _statusSink;
 
-    public SurfaceRegistry(IModBridge bridge, IPanelStatusSink statusSink)
+    public SurfaceRegistry(ReflectionModBridge bridge, ModBridgeStatusSink statusSink)
     {
         _bridge     = bridge     ?? throw new ArgumentNullException(nameof(bridge));
         _statusSink = statusSink ?? throw new ArgumentNullException(nameof(statusSink));

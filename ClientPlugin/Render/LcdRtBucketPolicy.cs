@@ -78,17 +78,15 @@ internal sealed class LcdRtBucketPolicy
         int desiredW = Math.Max(1, (int)(mainViewCap.X * scale));
         int desiredH = Math.Max(1, (int)(mainViewCap.Y * scale));
 
-        // Tiers per axis: {128, 256, 512, 1024} from Pow2Buckets, plus
-        // a top tier at mainViewCap so close+focused panels can hit
-        // full main-view resolution. Without the top tier, Pow2Buckets
-        // would cap at 1024 even when desired = 1920 → close panels
-        // would never reach native main-view quality.
-        int w = (desiredW > 1024)
-            ? Math.Min(desiredW, mainViewCap.X)
-            : Pow2Buckets.SnapUp(desiredW);
-        int h = (desiredH > 1024)
-            ? Math.Min(desiredH, mainViewCap.Y)
-            : Pow2Buckets.SnapUp(desiredH);
+        // Discrete tiers per axis: {128, 256, 512, 1024, mainViewCap}.
+        // Snap UP — anything > 1024 jumps to the mainView tier; below
+        // 1024 walks the pow2 grid. This keeps the unique-size count
+        // bounded (5 tiers × N aspects ≈ borrow-pool friendly) instead
+        // of linearly interpolating 1025..mainViewCap which would
+        // mint a fresh size per frame for any panel whose desired
+        // pixels happen to land in that range.
+        int w = (desiredW > 1024) ? mainViewCap.X : Pow2Buckets.SnapUp(desiredW);
+        int h = (desiredH > 1024) ? mainViewCap.Y : Pow2Buckets.SnapUp(desiredH);
 
         return new Vector2I(w, h);
     }

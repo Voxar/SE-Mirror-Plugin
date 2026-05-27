@@ -8,7 +8,7 @@ namespace ClientPlugin;
 /// <see cref="PanelSurface.Mode"/>.
 ///
 /// <para>Multi-member coplanar mirror groups go through
-/// <see cref="IMirrorGroupRenderer"/> instead — different input shape
+/// <see cref="MirrorGroupRenderer"/> instead — different input shape
 /// (one rect covering multiple surfaces) and different finalize
 /// step (per-member sub-rect blit).</para>
 /// </summary>

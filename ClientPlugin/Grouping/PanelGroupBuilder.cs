@@ -32,7 +32,7 @@ namespace ClientPlugin;
 internal sealed class PanelGroupBuilder : IPanelGroupBuilder
 {
     private const double QuantizeUnitsPerMeter = 1024.0;   // ~1 mm tolerance on normals
-    private const double DistanceToleranceM    = 0.1;     // 10 cm between coplanar walls
+    private const double DistanceToleranceM    = 0.05;     // 10 cm between coplanar walls
     private const int    ApproxTargetPx        = 512;       // typical native LCD pixel dim
     private const double TouchingTolerance     = 0.10;     // edges within 10 cm = "touching"
 

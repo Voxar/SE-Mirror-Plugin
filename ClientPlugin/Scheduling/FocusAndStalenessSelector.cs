@@ -45,6 +45,32 @@ internal sealed class FocusAndStalenessSelector : IPanelSlotSelector
 {
     private const double StalenessWeight = 0.00001;
 
+    // Per-mode focus weight applied in ScoreFor. Mirrors keep full
+    // focus (1.0); cameras get a small fraction so that a focused
+    // camera's combined score sits comfortably below a typical
+    // peripherally-focused mirror's combined score. Without this,
+    // FocusScore (Coverage × LookFactor²⁰ / DistSq) is identical
+    // for both modes — a focused camera at raw focus 0.1 would
+    // win against a mirror at 0.008 and the mirror would need
+    // ~10000+ ticks of staleness to catch up.
+    // Sized so 0.1 raw camera focus → 0.002 contribution, leaving
+    // a clear margin for any mirror's focus or staleness terms to
+    // dominate. Cameras still rotate via staleness so they aren't
+    // completely starved.
+    private const double CameraFocusWeight = 0.02;
+
+    // Flat additive bonus added to a mirror's combined score when
+    // the player is translating. Mirrors ghost while the world moves
+    // under a stale reflection; while moving, all visible mirrors
+    // should refresh more aggressively. The looked-at-mirror hard-
+    // lock handles the rear-view-in-active-use case (full lock);
+    // this bonus handles peripheral mirrors the player isn't aiming
+    // at but is moving past. Sized so a moving mirror outscores any
+    // typical camera focus contribution (camera 0.1 raw → 0.002 with
+    // CameraFocusWeight; 0.01 bonus puts the mirror at 5× the
+    // camera even before staleness kicks in).
+    private const double MovingMirrorBoost = 0.01;
+
     // A unit counts as "actively competing" in the surveillance
     // auto-balancer only when it passes BOTH gates:
     //   * focus score > FocusCompeteThreshold (~near-crosshair attention),
@@ -56,12 +82,19 @@ internal sealed class FocusAndStalenessSelector : IPanelSlotSelector
     private const double FocusCompeteThreshold    = 0.0001;
     private const double CoverageCompeteThreshold = 0.009;
 
+    // Stationary weighted-rotation slot counts (per cycle of length
+    // StationaryMirrorWeight + StationaryCameraWeight). 2:1 means
+    // mirrors get ~67% of the picks, cameras ~33% — the "mirrors
+    // prioritised but cameras not completely starved" rule from the
+    // user spec. Tunable.
+    private const int StationaryMirrorWeight = 2;
+    private const int StationaryCameraWeight = 1;
+
     private readonly IRenderUnitScore _focusScore;
 
-    // Cursor used by the not-moving + best-is-mirror fallback to
-    // round-robin visible mirrors. Advances on each successful pick;
-    // wraps with the unit array.
-    private int _mirrorCursor;
+    // Phase counter for the stationary weighted-rotation block.
+    // Advances on every entry to that branch (mirror or camera pick).
+    private int _stationaryCursor;
 
     public FocusAndStalenessSelector(IRenderUnitScore focusScore)
     {
@@ -97,30 +130,55 @@ internal sealed class FocusAndStalenessSelector : IPanelSlotSelector
         for (int i = 0; i < unitCount; i++)
         {
             if (picked[i]) continue;
-            double s = ScoreFor(in units[i], tickCounter, isPlayerInCockpit, focusScale);
+            double s = ScoreFor(in units[i], tickCounter, isPlayerInCockpit, focusScale, isPlayerMoving);
             if (s > bestScore) { bestScore = s; bestIdx = i; }
         }
         if (bestIdx < 0) return -1;
 
-        // Not-moving + best-is-mirror: cycle all visible mirrors equally.
-        // The "best" mirror is usually the one with highest staleness,
-        // and locking to it batch-after-batch would only refresh that
-        // one while its neighbours fall further behind. Round-robin
-        // gives every visible mirror equal share. Cameras still get
-        // picked normally on their own combined score in subsequent
-        // batches via PickNext re-calls (slot 0, slot 1+, ...).
+        // Not-moving + best-is-mirror: weighted rotation across BOTH
+        // modes so cameras don't starve when a focused mirror dominates
+        // combined score. Mirrors get the higher share
+        // (StationaryMirrorWeight slots per cycle), cameras get
+        // StationaryCameraWeight slots. Within each mode, the unit
+        // with max staleness wins — that's the "fairness inside mode"
+        // job the old mirror-only round-robin did, generalised.
+        // Without this branch, a focused mirror's high score keeps
+        // beating peripheral cameras whose only score contribution is
+        // staleness × StalenessWeight = 0.00001/tick; a fresh mirror
+        // at focus 0.05 takes ~5000 ticks (~83 s) before a peripheral
+        // camera's staleness can outscore it.
         if (!isPlayerMoving
             && units[bestIdx].Group.Members[0].Surface.Mode == PanelMode.Mirror)
         {
-            for (int step = 0; step < unitCount; step++)
+            int totalWeight = StationaryMirrorWeight + StationaryCameraWeight;
+            int phase = _stationaryCursor % totalWeight;
+            _stationaryCursor++;
+            bool pickMirror = phase < StationaryMirrorWeight;
+            PanelMode wantMode = pickMirror ? PanelMode.Mirror : PanelMode.Camera;
+
+            // First try: max-staleness unit of the chosen mode.
+            int chosen = -1;
+            long bestStale = -1;
+            for (int i = 0; i < unitCount; i++)
             {
-                int i = (_mirrorCursor + step) % unitCount;
                 if (picked[i]) continue;
-                if (units[i].Group.Members[0].Surface.Mode != PanelMode.Mirror) continue;
-                _mirrorCursor = (i + 1) % unitCount;
-                return i;
+                if (units[i].Group.Members[0].Surface.Mode != wantMode) continue;
+                long stale = MaxMemberStaleness(units[i], tickCounter);
+                if (stale > bestStale) { bestStale = stale; chosen = i; }
             }
-            // No unpicked mirror — fall through to the combined-score pick.
+            if (chosen >= 0) return chosen;
+
+            // No unit of the chosen mode visible — fall back to
+            // max-staleness across all unpicked, so we still pick
+            // something rather than skip the slot.
+            for (int i = 0; i < unitCount; i++)
+            {
+                if (picked[i]) continue;
+                long stale = MaxMemberStaleness(units[i], tickCounter);
+                if (stale > bestStale) { bestStale = stale; chosen = i; }
+            }
+            if (chosen >= 0) return chosen;
+            // Nothing unpicked — fall through to combined-score path.
         }
 
         return bestIdx;
@@ -147,11 +205,15 @@ internal sealed class FocusAndStalenessSelector : IPanelSlotSelector
     /// (<see cref="ComputeWithStaleness"/>) so the displayed numbers
     /// match what actually picks.</summary>
     private double ScoreFor(in RenderUnit u, long tickCounter,
-                            bool isPlayerInCockpit, double focusScale)
+                            bool isPlayerInCockpit, double focusScale,
+                            bool isPlayerMoving)
     {
-        double f         = isPlayerInCockpit ? 0.0 : _focusScore.Compute(in u, tickCounter) * focusScale;
-        long   staleness = MaxMemberStaleness(u, tickCounter);
-        return f + staleness * StalenessWeight;
+        var mode = u.Group.Members[0].Surface.Mode;
+        double modeWeight = mode == PanelMode.Camera ? CameraFocusWeight : 1.0;
+        double f          = isPlayerInCockpit ? 0.0 : _focusScore.Compute(in u, tickCounter) * modeWeight * focusScale;
+        long   staleness  = MaxMemberStaleness(u, tickCounter);
+        double movingBonus = (isPlayerMoving && mode == PanelMode.Mirror) ? MovingMirrorBoost : 0.0;
+        return f + staleness * StalenessWeight + movingBonus;
     }
 
     /// <summary>
@@ -200,6 +262,7 @@ internal sealed class FocusAndStalenessSelector : IPanelSlotSelector
     /// frame.</summary>
     public double ComputeWithStaleness(in RenderUnit u, long tickCounter,
                                        bool isPlayerInCockpit,
-                                       double focusScale)
-        => ScoreFor(in u, tickCounter, isPlayerInCockpit, focusScale);
+                                       double focusScale,
+                                       bool isPlayerMoving)
+        => ScoreFor(in u, tickCounter, isPlayerInCockpit, focusScale, isPlayerMoving);
 }

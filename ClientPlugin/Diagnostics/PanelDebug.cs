@@ -185,7 +185,7 @@ internal static class PanelDebug
             ref readonly RenderUnit u = ref units[idx];
             var lead   = u.Group.Members[0].Surface;
             double sc    = s_primaryScore.Compute(in u, tickCounter) * focusScale;
-            double scStl = s_picker.ComputeWithStaleness(in u, tickCounter, isPlayerInCockpit, focusScale);
+            double scStl = s_picker.ComputeWithStaleness(in u, tickCounter, isPlayerInCockpit, focusScale, isPlayerMoving);
             int mc     = u.Group.Members.Count;
             double dM  = Math.Sqrt(u.DistSq);
 
@@ -219,14 +219,19 @@ internal static class PanelDebug
             //     bonus. Diff between the two is exactly the staleness
             //     boost the panel currently has — useful for seeing
             //     how long a panel has been waiting for its turn.
-            // vp = the bucketed scene-render viewport this unit would
-            //      get if picked this batch. Computed by LcdRtBucketPolicy
-            //      from this unit's Coverage and its LCD's offscreen RT
-            //      size (capped at the LCD RT and at main view).
+            // vp = the scene-render viewport this unit would get if
+            //      picked this batch. Mirrors PanelBatchOrchestrator.
+            //      RenderUnit exactly: when DistanceResolutionScale is
+            //      OFF, render uses the main view resolution; when ON,
+            //      LcdRtBucketPolicy picks a bucket from Coverage +
+            //      LookFactor + LCD RT size (capped at LCD RT and main
+            //      view). HUD must reflect that gate or it reports
+            //      the bucket even when LOD is disabled.
             // far = far-clip plane (m) for slot0/slot1+.
             var mainRes = MyRender11.ResolutionI;
             Vector2I vp = mainRes;
-            if (s_offscreenResolver != null
+            if (s_settings.DistanceResolutionScale
+                && s_offscreenResolver != null
                 && lead.Block != null
                 && s_offscreenResolver.TryResolve(lead.Block, lead.SurfaceIdx, out var lcdInfo)
                 && lcdInfo.Rtv != null)
@@ -332,8 +337,9 @@ internal static class PanelDebug
         pos.Y += HudRowHeightPx;
 
         // Resolution + far-plane override this unit would receive.
-        // The vp dims are the bucketed scene-render size chosen by
-        // LcdRtBucketPolicy from the unit's Coverage and LCD RT size.
+        // The vp dims match what PanelBatchOrchestrator.RenderUnit
+        // would actually push: main view when LOD off, bucket when LOD
+        // on and the LCD offscreen is resolved.
         Vector2I leadLcdSize = new Vector2I(0, 0);
         if (lead.Block != null
             && s_offscreenResolver != null
@@ -342,7 +348,7 @@ internal static class PanelDebug
         {
             leadLcdSize = leadInfo.Rtv.Size;
         }
-        Vector2I vp = leadLcdSize.X > 0
+        Vector2I vp = (s_settings.DistanceResolutionScale && leadLcdSize.X > 0)
             ? s_bucketPolicy.ResolutionFor(leadLcdSize, u.Coverage, u.LookFactor, res)
             : res;
         float farPlane0 = s_settings.PanelFarClipM;

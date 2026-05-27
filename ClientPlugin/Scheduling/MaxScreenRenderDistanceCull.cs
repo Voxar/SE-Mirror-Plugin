@@ -28,18 +28,20 @@ internal sealed class MaxScreenRenderDistanceCull : IPanelCull
     public bool ShouldKeep(PanelGroup group, in CullContext ctx)
     {
         var lead = group.Members[0].Surface;
-        var block = lead.Block;
-        if (block == null) return false;
+        var leadBlock = lead.Block;
+        if (leadBlock == null) return false;
 
         if (!MyDefinitionManager.Static.TryGetDefinition<MyTextPanelDefinition>(
-                block.BlockDefinition, out var textPanelDef)
+                leadBlock.BlockDefinition, out var textPanelDef)
             || textPanelDef == null)
             return true;
 
         float maxDist = textPanelDef.MaxScreenRenderDistance;
         if (maxDist <= 0f) return true;
 
-        double distSq = (block.WorldMatrix.Translation - ctx.Eye).LengthSquared();
-        return distSq <= maxDist * maxDist;
+        // Use closest-member distance from CullContext (computed once
+        // per unit by UnitScorer). Lead-only would falsely drop wide
+        // groups whose lead sits at the far end of the wall.
+        return ctx.GroupClosestDistSq <= (double)maxDist * maxDist;
     }
 }

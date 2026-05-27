@@ -396,7 +396,8 @@ internal sealed class PanelBatchOrchestrator : IPanelBatchOrchestrator
             // runaway loop where a tiny far panel that fails to render
             // keeps accumulating priority and dominating the picker.
             if (_units[src].Coverage < MinCoverage) continue;
-            if (_cullChain.ShouldKeep(_units[src].Group, in ctx))
+            var unitCtx = ctx.WithGroupClosestDistSq(_units[src].DistSq);
+            if (_cullChain.ShouldKeep(_units[src].Group, in unitCtx))
             {
                 if (dst != src) _units[dst] = _units[src];
                 dst++;

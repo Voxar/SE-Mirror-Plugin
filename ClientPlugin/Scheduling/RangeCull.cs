@@ -23,15 +23,17 @@ internal sealed class RangeCull : IPanelCull
 
     public bool ShouldKeep(PanelGroup group, in CullContext ctx)
     {
-        var lead = group.Members[0].Surface;
-        var block = lead.Block;
-        if (block == null) return false;
-
         float range = _settings.MaxViewDistanceM;
         if (range <= 0f) return true;  // unconfigured = no cull
 
-        double distSq = (block.WorldMatrix.Translation - ctx.Eye).LengthSquared();
-        if (distSq <= range * range) return true;
+        // Closest-member distance — already computed by UnitScorer
+        // (RenderUnit.DistSq) and threaded in here via CullContext.
+        // Using the lead block's translation alone is wrong for wide
+        // multi-member groups: a 65m mirror wall whose lead sits at
+        // one end reports a 60m distance even when the user is right
+        // next to the other end, and gets dropped because the cap is
+        // 40m.
+        if (ctx.GroupClosestDistSq <= (double)range * range) return true;
 
         // Out-of-range: push status so the mod's TSS splash subtitle
         // changes ("Out of range"). The subtitle change breaks SE's
@@ -39,7 +41,7 @@ internal sealed class RangeCull : IPanelCull
         // re-renders the splash over the plugin's last frame.
         // ModBridgeStatusSink dedupes against LastReportedStatus so
         // the per-frame cost is one string compare per panel.
-        _statusSink.Report(lead, "Out of range");
+        _statusSink.Report(group.Members[0].Surface, "Out of range");
         return false;
     }
 }

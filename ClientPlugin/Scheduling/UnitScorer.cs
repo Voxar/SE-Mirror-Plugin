@@ -97,68 +97,61 @@ internal sealed class UnitScorer : IUnitScorer
     // ── CenterFactor ─────────────────────────────────────────────────
 
     /// <summary>
-    /// cos⁴(angle) between player-forward and the eye→member direction,
-    /// taken as the MAX across the group's members. Floored at 0.01.
-    /// Per-member rather than per-group so a wide multi-panel group
-    /// whose centroid sits well off-axis can still score high when
-    /// the player IS aimed at one of its individual panels.
+    /// cos⁴(angle) between player-forward and the eye→union-rect
+    /// direction, evaluated at the four corners of the group's union
+    /// rectangle and taking the max. Floored at 0.01. Corners give the
+    /// same "best alignment with forward" result as iterating each
+    /// member (any member's center sits inside the union AABB, so the
+    /// closest-to-forward-axis point is at most as good as a corner).
+    /// O(1), no member iteration.
     /// </summary>
     private static double ComputeCenterFactor(PanelGroup g, Vector3D eye, Vector3D forward)
     {
         bool hasPlane = g.Normal.LengthSquared() > 0.5;
-        var members = g.Members;
 
         double best = 0.0;
-        for (int i = 0; i < members.Count; i++)
+        if (hasPlane)
         {
-            Vector3D anchor;
-            if (hasPlane)
-            {
-                var m = members[i];
-                double uMid = (m.UMin + m.UMax) * 0.5;
-                double vMid = (m.VMin + m.VMax) * 0.5;
-                anchor = g.Origin + g.BasisU * uMid + g.BasisV * vMid;
-            }
-            else
-            {
-                var block = members[i].Surface.Block;
-                if (block == null) continue;
-                anchor = block.WorldMatrix.Translation;
-            }
-
-            Vector3D toMember = anchor - eye;
-            double toLen = toMember.Length();
-            if (toLen <= 0.001) continue;
-            double cosAngle = Vector3D.Dot(toMember / toLen, forward);
-            if (cosAngle <= 0) continue;
-            double align = cosAngle * cosAngle;
-            double cf = align * align;          // cos⁴
-            if (cf > best) best = cf;
+            best = Math.Max(best, Cos4ToPoint(eye, forward, g.Origin + g.BasisU * g.UMin + g.BasisV * g.VMin));
+            best = Math.Max(best, Cos4ToPoint(eye, forward, g.Origin + g.BasisU * g.UMax + g.BasisV * g.VMin));
+            best = Math.Max(best, Cos4ToPoint(eye, forward, g.Origin + g.BasisU * g.UMax + g.BasisV * g.VMax));
+            best = Math.Max(best, Cos4ToPoint(eye, forward, g.Origin + g.BasisU * g.UMin + g.BasisV * g.VMax));
+        }
+        else
+        {
+            // No plane: fall back to lead block's translation.
+            var block = g.Members[0].Surface.Block;
+            if (block != null) best = Cos4ToPoint(eye, forward, block.WorldMatrix.Translation);
         }
         return Math.Max(CenterFactorFloor, best);
+    }
+
+    private static double Cos4ToPoint(Vector3D eye, Vector3D forward, Vector3D point)
+    {
+        Vector3D to = point - eye;
+        double len = to.Length();
+        if (len <= 0.001) return 0.0;
+        double cosAngle = Vector3D.Dot(to / len, forward);
+        if (cosAngle <= 0) return 0.0;
+        double align = cosAngle * cosAngle;
+        return align * align;
     }
 
     // ── LookFactor ───────────────────────────────────────────────────
 
     /// <summary>
-    /// MAX across members of: cos⁴ of the angle from forward to the
-    /// closest point on the MEMBER's own rectangle. Per-member rather
-    /// than per-group's-union so a wide group doesn't score 1.0
-    /// merely because the aim ray lands inside the union's bounding
-    /// box (which can include gaps between panels) — the aim has to
-    /// actually hit one of the individual panels' rects.
-    ///
-    /// <para>Returns the floor when the group has no populated plane
-    /// (no rectangle to intersect), when the look ray is parallel to
-    /// or facing away from the plane, or when the intersection is
-    /// behind the eye.</para>
+    /// cos⁴ of the angle from forward to the closest point on the
+    /// group's UNION rectangle. Closed form via UMin/UMax/VMin/VMax:
+    /// project the forward ray's plane intersection into the basis,
+    /// clamp to the union rect, distance gives the angle. Returns
+    /// the floor when the group has no populated plane, when the
+    /// look ray is parallel to or facing away from the plane, or
+    /// when the intersection is behind the eye.
     /// </summary>
     private static double ComputeLookFactor(PanelGroup g, Vector3D eye, Vector3D forward)
     {
         if (g.Normal.LengthSquared() <= 0.5) return CenterFactorFloor;
 
-        // Plane intersection is computed once — every member lives on
-        // the group's shared plane.
         double signedDist = Vector3D.Dot(eye - g.Origin, g.Normal);
         double fwdN       = Vector3D.Dot(forward, g.Normal);
 
@@ -175,22 +168,15 @@ internal sealed class UnitScorer : IUnitScorer
         double   hitU  = Vector3D.Dot(delta, g.BasisU);
         double   hitV  = Vector3D.Dot(delta, g.BasisV);
 
-        var members = g.Members;
-        double best = 0.0;
-        for (int i = 0; i < members.Count; i++)
-        {
-            var m = members[i];
-            double dU = Math.Max(0, Math.Max(m.UMin - hitU, hitU - m.UMax));
-            double dV = Math.Max(0, Math.Max(m.VMin - hitV, hitV - m.VMax));
-            if (dU == 0 && dV == 0) return 1.0;          // aim hit THIS panel
+        double dU = Math.Max(0, Math.Max(g.UMin - hitU, hitU - g.UMax));
+        double dV = Math.Max(0, Math.Max(g.VMin - hitV, hitV - g.VMax));
+        if (dU == 0 && dV == 0) return 1.0;                    // aim hit the union rect
 
-            double offRect  = Math.Sqrt(dU * dU + dV * dV);
-            double cosAngle = t / Math.Sqrt(t * t + offRect * offRect);
-            double lf = cosAngle * cosAngle;
-            lf *= lf;
-            if (lf > best) best = lf;
-        }
-        return Math.Max(CenterFactorFloor, best);
+        double offRect  = Math.Sqrt(dU * dU + dV * dV);
+        double cosAngle = t / Math.Sqrt(t * t + offRect * offRect);
+        double lf = cosAngle * cosAngle;
+        lf *= lf;
+        return Math.Max(CenterFactorFloor, lf);
     }
 
     // ── Coverage ─────────────────────────────────────────────────────
@@ -346,37 +332,38 @@ internal sealed class UnitScorer : IUnitScorer
 
     // ── DistSq ───────────────────────────────────────────────────────
 
-    /// <summary>Distance² from the eye to the closest member's
-    /// SCREEN surface — not the block's center. For groups with a
-    /// populated plane (the usual case), uses
-    /// <c>g.Origin + BasisU × uMid + BasisV × vMid</c> per member.
-    /// For unpopulated planes (failed mesh resolution, no-plane
-    /// fallback), falls back to the block's WorldMatrix translation.</summary>
+    /// <summary>Distance² from the eye to the closest point on the
+    /// group's union rectangle — closed form, no member iteration.
+    /// The rectangle is (UMin..UMax, VMin..VMax) on the plane defined
+    /// by (Origin, Normal, BasisU, BasisV) so we project the eye onto
+    /// the plane, clamp the in-plane (u,v) coordinates to the
+    /// rectangle, and measure 3D distance to that clamped point.
+    /// For groups whose plane never resolved (no-plane fallback),
+    /// falls back to the first member's block translation.</summary>
     private static bool TryClosestMemberDistSq(
         PanelGroup g, Vector3D eye, out double minDistSq)
     {
         minDistSq = double.MaxValue;
-        var members = g.Members;
         bool hasPlane = g.Normal.LengthSquared() > 0.5;
 
+        if (hasPlane)
+        {
+            Vector3D delta = eye - g.Origin;
+            double u = Vector3D.Dot(delta, g.BasisU);
+            double v = Vector3D.Dot(delta, g.BasisV);
+            if (u < g.UMin) u = g.UMin; else if (u > g.UMax) u = g.UMax;
+            if (v < g.VMin) v = g.VMin; else if (v > g.VMax) v = g.VMax;
+            Vector3D closest = g.Origin + g.BasisU * u + g.BasisV * v;
+            minDistSq = (closest - eye).LengthSquared();
+            return true;
+        }
+
+        var members = g.Members;
         for (int i = 0; i < members.Count; i++)
         {
-            Vector3D pos;
-            if (hasPlane)
-            {
-                var m = members[i];
-                double uMid = (m.UMin + m.UMax) * 0.5;
-                double vMid = (m.VMin + m.VMax) * 0.5;
-                pos = g.Origin + g.BasisU * uMid + g.BasisV * vMid;
-            }
-            else
-            {
-                var block = members[i].Surface.Block;
-                if (block == null) continue;
-                pos = block.WorldMatrix.Translation;
-            }
-
-            double d = (pos - eye).LengthSquared();
+            var block = members[i].Surface.Block;
+            if (block == null) continue;
+            double d = (block.WorldMatrix.Translation - eye).LengthSquared();
             if (d < minDistSq) minDistSq = d;
         }
         return minDistSq != double.MaxValue;

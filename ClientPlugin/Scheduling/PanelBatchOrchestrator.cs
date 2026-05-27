@@ -40,7 +40,7 @@ internal sealed class PanelBatchOrchestrator
     /// loss at typical viewing distances. Temporarily 1.0 (no
     /// reduction) while we isolate whether the reflection FOV bug
     /// follows the resolution override or this factor.</summary>
-    private const float SecondarySlotFarPlaneFactor = 1.0f;
+    internal const float SecondarySlotFarPlaneFactor = 1.0f;
 
     private readonly SurfaceRegistry           _registry;
     private readonly PanelGroupBuilder        _groupBuilder;

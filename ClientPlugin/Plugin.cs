@@ -118,7 +118,20 @@ public class Plugin : IPlugin
             var probe = assemblies[i].GetType("MirrorCameraMod.PanelRegistry", throwOnError: false);
             if (probe != null) latest = probe;
         }
-        if (latest == null) return;
+        if (latest == null)
+        {
+            // Mod assembly went away (player disabled the mod mid-
+            // session). If we were previously bound to one, clear the
+            // bridge and the sentinel so a future reload triggers a
+            // fresh "new type" detection instead of comparing against
+            // the stale Type reference.
+            if (_lastSeenRegistryType != null)
+            {
+                _lastSeenRegistryType = null;
+                _modBridge?.ClearCache();
+            }
+            return;
+        }
         if (ReferenceEquals(latest, _lastSeenRegistryType)) return;
         // New assembly appeared (or first time seeing one). Drop the
         // bridge so SurfaceRegistry's per-tick TryResolve re-binds to

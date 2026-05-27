@@ -21,24 +21,26 @@ public static class ConfigStorage
 
     public static Config Load()
     {
-        var path = ConfigFilePath;
-        if (!File.Exists(path))
-        {
-            return new Config();
-        }
-
-        var xmlSerializer = new XmlSerializer(typeof(Config));
+        // Entire body wrapped: resolving ConfigFilePath touches
+        // MyFileSystem.UserDataPath, which can throw NullReference /
+        // ArgumentNull if accessed during static-init timing windows
+        // before SE's filesystem is ready. An unhandled throw here
+        // becomes a TypeInitializationException on Config.Current and
+        // prevents the plugin from composing at all.
         try
         {
+            var path = ConfigFilePath;
+            if (!File.Exists(path)) return new Config();
+
+            var xmlSerializer = new XmlSerializer(typeof(Config));
             using (var streamReader = File.OpenText(path))
                 return (Config)xmlSerializer.Deserialize(streamReader) ?? new Config();
         }
-        catch (Exception)
+        catch (Exception ex)
         {
-            MyLog.Default.Warning($"{ConfigFileName}: Failed to read config file: {ConfigFilePath}");
+            MyLog.Default.Warning($"{ConfigFileName}: Failed to read config file: {ex.Message}");
+            return new Config();
         }
-            
-        return new Config();
     }
         
 }

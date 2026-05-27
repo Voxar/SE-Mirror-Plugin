@@ -54,7 +54,12 @@ Texture2D<float4> SourceTex : register(t0);
 SamplerState      LinearSamp : register(s0);
 
 float4 main(float4 svpos : SV_Position) : SV_TARGET {
-    float2 dst_uv = float2((svpos.x + 0.5) / dstSize.x, (svpos.y + 0.5) / dstSize.y);
+    // SV_Position in D3D11 already carries pixel-center coordinates
+    // (first pixel = 0.5, 0.5), so dividing it directly yields the
+    // correct destination UV. Earlier code added another 0.5 — a D3D9
+    // half-pixel-offset workaround that shifts every blit by half a
+    // destination texel in +X and +Y on D3D11.
+    float2 dst_uv = svpos.xy / dstSize;
     float2 src_uv = srcOrigin + dst_uv.x * srcAxisX + dst_uv.y * srcAxisY;
     return SourceTex.SampleLevel(LinearSamp, src_uv, 0);
 }";

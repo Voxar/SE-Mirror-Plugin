@@ -238,8 +238,16 @@ internal static class PanelDebug
             {
                 vp = s_bucketPolicy.ResolutionFor(lcdInfo.Rtv.Size, u.Coverage, u.LookFactor, mainRes);
             }
-            float far0 = s_settings.PanelFarClipM;
-            float far1 = far0 * 0.5f;
+            // Mirror the orchestrator's per-slot far-plane math
+            // (PanelBatchOrchestrator.RunBatch around line 237). Slot 0
+            // = min(setting, mainView's FarClipping); slot 1+ multiplied
+            // by SecondarySlotFarPlaneFactor. Reading PanelFarClipM
+            // raw + hardcoding 0.5 (the old factor) misreports both
+            // values whenever the setting exceeds the main view or the
+            // factor isn't 0.5 anymore.
+            float mainFar = (float)VRageRender.MyRender11.Environment.Matrices.FarClipping;
+            float far0 = Math.Min(s_settings.PanelFarClipM, mainFar);
+            float far1 = far0 * PanelBatchOrchestrator.SecondarySlotFarPlaneFactor;
             string line = string.Format(
                 "{0} f={1,7:F4} f+s={2,7:F4} vp={16}x{17} far={18:F0}/{19:F0} {3} {4} group={5} grid={6:X} mode={7} n=({8},{9},{10}) sd={11:F3} cf={12:F2} cov={13:F3} lf={14:F2} d={15:F1}m",
                 picked[idx] ? "*" : " ",
@@ -351,8 +359,9 @@ internal static class PanelDebug
         Vector2I vp = (s_settings.DistanceResolutionScale && leadLcdSize.X > 0)
             ? s_bucketPolicy.ResolutionFor(leadLcdSize, u.Coverage, u.LookFactor, res)
             : res;
-        float farPlane0 = s_settings.PanelFarClipM;
-        float farPlane1 = farPlane0 * 0.5f;
+        float mainFarPlane = (float)VRageRender.MyRender11.Environment.Matrices.FarClipping;
+        float farPlane0 = Math.Min(s_settings.PanelFarClipM, mainFarPlane);
+        float farPlane1 = farPlane0 * PanelBatchOrchestrator.SecondarySlotFarPlaneFactor;
         DrawHudText(pos,
             $"  vp: {vp.X}x{vp.Y} (lcd {leadLcdSize.X}x{leadLcdSize.Y})  far: {farPlane0:F0}/{farPlane1:F0}m  cov={u.Coverage:F4}",
             HudNormalColor);

@@ -84,7 +84,14 @@ internal readonly struct CameraMatrices
             fovForSkybox:         em.FovH,
             nearPlane:            em.NearClipping,
             farPlane:             em.FarClipping,
-            farFarPlane:          em.FarClipping,
+            // em.LargeDistanceFarClipping is the value SE puts into
+            // msg.FarFarPlane for the main view (~500 km, vs FarClipping
+            // ~5 km). Restoring FarClipping for both would force the
+            // main view's planet-impostor / atmosphere clip plane down
+            // to ~5 km on every panel-render dispose — planet impostors
+            // disappear / clip whenever a panel renders. Read the
+            // correct field.
+            farFarPlane:          em.LargeDistanceFarClipping,
             projectionOffsetX:    em.Projection.M31,
             projectionOffsetY:    em.Projection.M32,
             isOffAxisProjection:  false,

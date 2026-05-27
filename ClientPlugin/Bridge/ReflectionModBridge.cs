@@ -187,16 +187,35 @@ internal sealed class ReflectionModBridge
         foreach (var entry in raw)
         {
             if (entry == null) continue;
-            yield return new PanelInfoSnapshot(
-                surface:         _readSurface(entry),
-                block:           _readBlock(entry),
-                surfaceIdx:      _readSurfaceIdx(entry),
-                mode:            (PanelMode)_readMode(entry),
-                cameraBlock:     _readCameraBlock(entry),
-                zoom:            _readZoom(entry),
-                mirrorAngleDegX: _readMirrorAngleDegX(entry),
-                mirrorAngleDegY: _readMirrorAngleDegY(entry),
-                mirrorAngleDegZ: _readMirrorAngleDegZ(entry));
+            // Wrap per-entry reads. The compiled delegates throw if a
+            // mod struct layout drifted past the ApiVersion gate, or
+            // if a field is unexpectedly null at the wrong moment. An
+            // unhandled throw aborts iteration mid-stream and leaves
+            // SurfaceRegistry's mark-and-sweep wiping every panel
+            // whose entry came AFTER the throw. Catch, log once, drop
+            // the bridge so the next Sync re-resolves cleanly.
+            PanelInfoSnapshot snap;
+            try
+            {
+                snap = new PanelInfoSnapshot(
+                    surface:         _readSurface(entry),
+                    block:           _readBlock(entry),
+                    surfaceIdx:      _readSurfaceIdx(entry),
+                    mode:            (PanelMode)_readMode(entry),
+                    cameraBlock:     _readCameraBlock(entry),
+                    zoom:            _readZoom(entry),
+                    mirrorAngleDegX: _readMirrorAngleDegX(entry),
+                    mirrorAngleDegY: _readMirrorAngleDegY(entry),
+                    mirrorAngleDegZ: _readMirrorAngleDegZ(entry));
+            }
+            catch (Exception ex)
+            {
+                MyLog.Default.WriteLine(
+                    "[Mirror] EnumeratePanels entry read threw, dropping bridge: " + ex.Message);
+                ClearCache();
+                yield break;
+            }
+            yield return snap;
         }
     }
 

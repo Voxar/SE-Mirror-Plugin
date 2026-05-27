@@ -227,13 +227,13 @@ public class Plugin : IPlugin
         var slot0  = picker;
         var slot1  = picker;
 
-        var bucketPolicy = new LcdRtBucketPolicy();
+        var bucketPolicy = new LcdRtBucketPolicy(settings);
 
         // Wire the debug HUD overlay — sees the same score function
         // the slot-0 selector uses AND the same bucket policy the
         // orchestrator applies, so the displayed vp= dims match
         // what actually renders.
-        PanelDebug.ConfigureHud(slot0Score, picker, bucketPolicy, settings, offscreenResolver);
+        PanelDebug.ConfigureHud(slot0Score, picker, bucketPolicy, settings, offscreenResolver, _surfaceRegistry);
 
         _orchestrator = new PanelBatchOrchestrator(
             registry:          _surfaceRegistry,

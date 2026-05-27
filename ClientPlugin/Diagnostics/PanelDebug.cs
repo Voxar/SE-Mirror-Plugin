@@ -86,6 +86,7 @@ internal static class PanelDebug
     private static LcdRtBucketPolicy          s_bucketPolicy;
     private static IMirrorPluginSettings      s_settings;
     private static LcdOffscreenResolver      s_offscreenResolver;
+    private static SurfaceRegistry            s_surfaceRegistry;
     private static int[]                      s_sortedIdx = Array.Empty<int>();
 
     // ── HUD: configuration ────────────────────────────────────────────
@@ -98,12 +99,14 @@ internal static class PanelDebug
         FocusAndStalenessSelector  picker,
         LcdRtBucketPolicy          bucketPolicy,
         IMirrorPluginSettings      settings,
-        LcdOffscreenResolver      offscreenResolver)
+        LcdOffscreenResolver      offscreenResolver,
+        SurfaceRegistry            surfaceRegistry)
     {
         s_primaryScore      = primaryScore      ?? throw new ArgumentNullException(nameof(primaryScore));
         s_picker            = picker            ?? throw new ArgumentNullException(nameof(picker));
         s_bucketPolicy      = bucketPolicy      ?? throw new ArgumentNullException(nameof(bucketPolicy));
         s_settings          = settings          ?? throw new ArgumentNullException(nameof(settings));
+        s_surfaceRegistry   = surfaceRegistry   ?? throw new ArgumentNullException(nameof(surfaceRegistry));
         s_offscreenResolver = offscreenResolver ?? throw new ArgumentNullException(nameof(offscreenResolver));
     }
 
@@ -134,7 +137,11 @@ internal static class PanelDebug
 
         if (unitCount == 0)
         {
-            DrawHudText(HudOrigin, "Panels: none", HudHeaderColor);
+            int trackedEmpty = s_surfaceRegistry?.SnapshotForRender()?.Length ?? 0;
+            var emptyPos = HudOrigin;
+            DrawHudText(emptyPos, $"Tracked panels: {trackedEmpty}", HudHeaderColor);
+            emptyPos.Y += HudRowHeightPx;
+            DrawHudText(emptyPos, "Panels — none in view", HudHeaderColor);
             return;
         }
 
@@ -160,6 +167,15 @@ internal static class PanelDebug
 
         int rows = Math.Min(HudMaxRows, unitCount);
         var pos = HudOrigin;
+
+        // Total panels the plugin is tracking (SurfaceRegistry's
+        // current snapshot length) vs the unitCount that survived
+        // grouping + culling this batch. Gap between them = panels
+        // either grouped together or dropped by a cull.
+        int tracked = s_surfaceRegistry?.SnapshotForRender()?.Length ?? 0;
+        DrawHudText(pos, $"Tracked panels: {tracked}", HudHeaderColor);
+        pos.Y += HudRowHeightPx;
+
         DrawHudText(pos,
             $"Panels — top {rows}/{unitCount} (* = picked, group N = #members)",
             HudHeaderColor);
@@ -221,17 +237,14 @@ internal static class PanelDebug
             //     how long a panel has been waiting for its turn.
             // vp = the scene-render viewport this unit would get if
             //      picked this batch. Mirrors PanelBatchOrchestrator.
-            //      RenderUnit exactly: when DistanceResolutionScale is
-            //      OFF, render uses the main view resolution; when ON,
-            //      LcdRtBucketPolicy picks a bucket from Coverage +
-            //      LookFactor + LCD RT size (capped at LCD RT and main
-            //      view). HUD must reflect that gate or it reports
-            //      the bucket even when LOD is disabled.
+            //      RenderUnit exactly: LcdRtBucketPolicy picks a bucket
+            //      from Coverage + LookFactor + LCD RT size, and
+            //      collapses to main-view resolution when the slider
+            //      is on its OFF tick.
             // far = far-clip plane (m) for slot0/slot1+.
             var mainRes = MyRender11.ResolutionI;
             Vector2I vp = mainRes;
-            if (s_settings.DistanceResolutionScale
-                && s_offscreenResolver != null
+            if (s_offscreenResolver != null
                 && lead.Block != null
                 && s_offscreenResolver.TryResolve(lead.Block, lead.SurfaceIdx, out var lcdInfo)
                 && lcdInfo.Rtv != null)
@@ -356,7 +369,7 @@ internal static class PanelDebug
         {
             leadLcdSize = leadInfo.Rtv.Size;
         }
-        Vector2I vp = (s_settings.DistanceResolutionScale && leadLcdSize.X > 0)
+        Vector2I vp = (leadLcdSize.X > 0)
             ? s_bucketPolicy.ResolutionFor(leadLcdSize, u.Coverage, u.LookFactor, res)
             : res;
         float mainFarPlane = (float)VRageRender.MyRender11.Environment.Matrices.FarClipping;

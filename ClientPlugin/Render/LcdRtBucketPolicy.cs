@@ -24,24 +24,19 @@ namespace ClientPlugin;
 /// </summary>
 internal sealed class LcdRtBucketPolicy
 {
-    /// <summary>Multiplier on Coverage before sqrt — how much extra
-    /// detail vs the panel's on-screen footprint. Lower = aggressively
-    /// shrink distant panels; higher = closer to mainView-native always.
-    ///
-    /// <para>Now that the bucket scales by mainViewCap (~1920) instead
-    /// of lcdSize (~512), the previous Oversample=100 saturates scale=1
-    /// for almost any visible panel → bucket always pegs at 1024 → no
-    /// LOD step-down. Oversample=5 lets scale=1 (full mainViewCap
-    /// bucket) at ~5% screen coverage; below that it steps down
-    /// smoothly: ~0.5% coverage → 512 bucket, ~0.05% → 128.</para></summary>
-    private const double Oversample = 5.0;
-
     /// <summary>Floor under <paramref name="lookFactor"/> so true-
     /// peripheral panels still get a usable bucket instead of
     /// collapsing to the minimum. cos⁴ falls off steeply (cos⁴(60°)
     /// ≈ 0.06, cos⁴(75°) ≈ 0.005) — a hard floor keeps the bucket
     /// math reasonable even at extreme angles.</summary>
     private const double MinLookFactor = 0.10;
+
+    private readonly IMirrorPluginSettings _settings;
+
+    public LcdRtBucketPolicy(IMirrorPluginSettings settings)
+    {
+        _settings = settings ?? throw new ArgumentNullException(nameof(settings));
+    }
 
     /// <summary>Compute the viewport size to render the unit's panel
     /// scene into. <paramref name="lcdSize"/> is the destination LCD's
@@ -67,10 +62,18 @@ internal sealed class LcdRtBucketPolicy
     /// 128/256/512 via the bucket grid.</para></summary>
     public Vector2I ResolutionFor(Vector2I lcdSize, double coverage, double lookFactor, Vector2I mainViewCap)
     {
+        // Slider's last tick is the OFF sentinel: anything > 5.0
+        // disables distance LOD and renders at main-view resolution.
+        if (_settings.LodDistanceFactor > 5.0f)
+            return mainViewCap;
+
+        // User-tunable Oversample. Higher = panels stay full mainView
+        // resolution further away; lower = downscale starts sooner.
+        double oversample = Math.Max(0.1, (double)_settings.LodDistanceFactor);
         double look = Math.Max(MinLookFactor, lookFactor);
         double scale = coverage <= 0.0
             ? 1.0
-            : Math.Min(1.0, Math.Sqrt(coverage * Oversample * look));
+            : Math.Min(1.0, Math.Sqrt(coverage * oversample * look));
 
         // Desired size in main-view pixels (not LCD pixels). Scale=1.0
         // means "render at main view native"; smaller scale steps the

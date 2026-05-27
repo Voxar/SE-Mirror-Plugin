@@ -29,7 +29,7 @@ public class Config : INotifyPropertyChanged, IMirrorPluginSettings
     private float _panelFarClipM            = 20000f;
     private bool  _disableShadows           = false;
     private bool  _debugHud                 = false;
-    private bool  _distanceResolutionScale  = true;
+    private float _lodDistanceFactor        = 2f;
     private float _maxViewDistanceM         = 40f;
     private bool  _renderOnPauseScreen      = false;
 
@@ -78,12 +78,14 @@ public class Config : INotifyPropertyChanged, IMirrorPluginSettings
         set => SetField(ref _panelFarClipM, value);
     }
 
-    [Checkbox(label: "Distance resolution LOD",
-        description: "Distant panels render at lower resolution.")]
-    public bool DistanceResolutionScale
+    [Slider(0.1f, 5.1f, 0.1f, SliderAttribute.SliderType.Float,
+        label: "Resolution scale",
+        description: "Higher = distant panels stay high-res longer. Max = always screen resolution.",
+        maxLabel: "Max")]
+    public float LodDistanceFactor
     {
-        get => _distanceResolutionScale;
-        set => SetField(ref _distanceResolutionScale, value);
+        get => _lodDistanceFactor;
+        set => SetField(ref _lodDistanceFactor, value);
     }
 
     [Checkbox(label: "Render on pause screen",

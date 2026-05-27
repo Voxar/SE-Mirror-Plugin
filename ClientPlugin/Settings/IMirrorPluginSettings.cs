@@ -37,15 +37,12 @@ internal interface IMirrorPluginSettings
     /// signals visible. Diagnostic tool, leave off in normal use.</summary>
     bool DebugHud { get; }
 
-    /// <summary>When true, panels covering a small fraction of the
-    /// main view render at a reduced resolution (bucketed scale chosen
-    /// from Coverage). Keeps the LCD's effective angular resolution
-    /// roughly constant as the viewer moves — distant panels stop
-    /// looking unnaturally crisp because the off-axis frustum has
-    /// narrowed but the render buffer was still full-size. Off by
-    /// default while we're proving out the engine borrow-pool
-    /// interaction.</summary>
-    bool DistanceResolutionScale { get; }
+    /// <summary>Multiplier on Coverage in the bucket-scale formula.
+    /// Higher = panels stay at high resolution further away, lower =
+    /// downscale starts sooner. Range 0.1-5.0; values &gt; 5.0 are the
+    /// slider's OFF tick — distance LOD disabled, panels render at
+    /// main-view resolution. Default 2.</summary>
+    float LodDistanceFactor { get; }
 
     /// <summary>Plugin-wide hard cap on render range (meters). Panels
     /// farther than this from the viewer never render. Replaces the

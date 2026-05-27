@@ -178,7 +178,14 @@ internal sealed class PanelBatchOrchestrator
 
         // 1. Group + plane refresh.
         var groups = _groupBuilder.GetGroups(_registry);
-        if (groups.Count == 0) return;
+        if (groups.Count == 0)
+        {
+            // Still draw the debug HUD so "Tracked panels: 0" remains
+            // visible when nothing is in view — the count is itself
+            // useful diagnostic info.
+            if (_settings.DebugHud) PanelDebug.DrawHud(_units, 0, _pickedFlags, _tickCounter, playerWorld, false, false);
+            return;
+        }
         _planeRefresher.Refresh(groups);
 
         // 2. Score.
@@ -198,7 +205,13 @@ internal sealed class PanelBatchOrchestrator
         // AABB is fully contained inside a closer unit's AABB.
         unitCount = OcclusionCullPanelToPanel(unitCount);
 
-        if (unitCount == 0) return;
+        if (unitCount == 0)
+        {
+            // Same as above — keep the HUD's tracked-panel readout
+            // alive when culls drop everything in view.
+            if (_settings.DebugHud) PanelDebug.DrawHud(_units, 0, _pickedFlags, _tickCounter, playerWorld, false, false);
+            return;
+        }
 
         // 4. Pick + render. Capture main state ONCE, restore ONCE at
         // batch end (per-panel restore happens inside each renderer's
@@ -421,19 +434,19 @@ internal sealed class PanelBatchOrchestrator
         //    engine's pool ceiling.
         // Disposed at end-of-scope restores the resolution globals
         // even if the render throws.
+        // Bucket policy is the sole arbiter — when the slider's OFF
+        // tick is selected it returns mainViewCap directly, so the
+        // call below is unconditional.
         Vector2I vpSize = MyRender11.ResolutionI;        // default: main view
-        if (_settings.DistanceResolutionScale)
+        var leadSurface = unit.Group.Members[0].Surface;
+        if (_offscreenResolver.TryResolve(leadSurface.Block, leadSurface.SurfaceIdx,
+                                          out var lcdInfo) && lcdInfo.Rtv != null)
         {
-            var leadSurface = unit.Group.Members[0].Surface;
-            if (_offscreenResolver.TryResolve(leadSurface.Block, leadSurface.SurfaceIdx,
-                                              out var lcdInfo) && lcdInfo.Rtv != null)
-            {
-                vpSize = _bucketPolicy.ResolutionFor(
-                    lcdSize:     lcdInfo.Rtv.Size,
-                    coverage:    unit.Coverage,
-                    lookFactor:  unit.LookFactor,
-                    mainViewCap: MyRender11.ResolutionI);
-            }
+            vpSize = _bucketPolicy.ResolutionFor(
+                lcdSize:     lcdInfo.Rtv.Size,
+                coverage:    unit.Coverage,
+                lookFactor:  unit.LookFactor,
+                mainViewCap: MyRender11.ResolutionI);
         }
 
         using (RenderResolutionGuard.Push(vpSize))

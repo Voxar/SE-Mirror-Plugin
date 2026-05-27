@@ -21,8 +21,9 @@ internal class SliderAttribute : Attribute, IElement
     public readonly SliderType Type;
     public readonly string Label;
     public readonly string Description;
+    public readonly string MaxLabel;
 
-    public SliderAttribute(float min, float max, float step = 1f, SliderType type = SliderType.Float, string label = null, string description = null)
+    public SliderAttribute(float min, float max, float step = 1f, SliderType type = SliderType.Float, string label = null, string description = null, string maxLabel = null)
     {
         Min = min;
         Max = max;
@@ -30,6 +31,7 @@ internal class SliderAttribute : Attribute, IElement
         Type = type;
         Label = label;
         Description = description;
+        MaxLabel = maxLabel;
     }
 
     public List<Control> GetControls(string name, Func<object> propertyGetter, Action<object> propertySetter)
@@ -38,17 +40,20 @@ internal class SliderAttribute : Attribute, IElement
 
         void ValueUpdate(MyGuiControlSlider element)
         {
+            bool atMax = MaxLabel != null && Math.Abs(element.Value - Max) < Step * 0.5f;
             switch (Type)
             {
                 case SliderType.Integer:
                     int intValue = Convert.ToInt32(element.Value);
                     propertySetter(intValue);
-                    valueLabel.Text = intValue.ToString();
+                    valueLabel.Text = atMax ? MaxLabel : intValue.ToString();
                     break;
 
                 case SliderType.Float:
                     propertySetter(element.Value);
-                    valueLabel.Text = MyValueFormatter.GetFormatedFloat(element.Value, element.LabelDecimalPlaces);
+                    valueLabel.Text = atMax
+                        ? MaxLabel
+                        : MyValueFormatter.GetFormatedFloat(element.Value, element.LabelDecimalPlaces);
                     break;
             }
         }

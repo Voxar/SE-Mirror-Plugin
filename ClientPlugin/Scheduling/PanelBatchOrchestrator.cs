@@ -443,7 +443,7 @@ internal sealed class PanelBatchOrchestrator : IPanelBatchOrchestrator
             {
                 var s = group.Members[0].Surface;
                 bool ok = _panelDispatcher.Render(s, in ctx);
-                if (ok) { s.MarkRendered(_tickCounter); _statusSink.Report(s, "rendered"); }
+                if (ok) { s.MarkRendered(_tickCounter); }
                 else
                 {
                     // Advance staleness clock even on failure — otherwise
@@ -470,7 +470,6 @@ internal sealed class PanelBatchOrchestrator : IPanelBatchOrchestrator
                     {
                         var m = members[i].Surface;
                         m.MarkRendered(_tickCounter);
-                        _statusSink.Report(m, "rendered");
                     }
                 }
                 else

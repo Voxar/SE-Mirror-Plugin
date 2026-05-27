@@ -6,15 +6,14 @@
     <Commit>156783f6dc02dced29d1dc52ecc489df4624d546</Commit>
 
     <Author>Voxar</Author>
-    <FriendlyName>LCD Mirror and Camera View</FriendlyName>
-    <!-- <Tooltip>LCD Mirror and Camera View</Tooltip> -->
-    <Description>Adds Mirrors to Space Engineers, as LCD app to use on any TextPanel and LCD block
+    <FriendlyName>Mirror Mod Renderer</FriendlyName>
+    <Tooltip>Render plugin for the Tilting LCD Mirror and Camera Views mod</Tooltip>
+    <Description>Renders Mirror and Camera views for the "Adjustable LCD Mirror and Camera Views" mod.
 
-Created for immersive vehicle rear view mirrors and First Person view only playthroughs. 
-Also comes with a Camera LCD app. 
+The so far required mod manages the LCD apps, configurations, toolbar actions, properties and MP sync.
+https://steamcommunity.com/sharedfiles/filedetails/?id=3733546359
 
-Somewhat complicated "fucus/attention based scheduling" updates as many mirror and camera screens 
-as possible with only one extra world render per frame.
+Mod source at https://github.com/voxar/SE-Mirror-Mod
     </Description>
 
     <!-- Only source code in the Directory entries listed in SourceDirectories is compiled. Exclude any test projects or similar. -->

@@ -377,36 +377,25 @@ internal sealed class PanelGroupBuilder
     /// from <c>_groups</c>. Returns the post-removal index of the
     /// kept group, which the caller then merges the candidate into.
     ///
-    /// <para>Only handles the case where all touched groups share a
-    /// rotation-0 basis alignment with the kept group — that's the
-    /// common "mirrors all face the same way on a flat wall" case.
-    /// Mixed-rotation touched groups are left alone (caller's
-    /// single-best fallback still adds the candidate to its closest
-    /// match).</para>
+    /// <para>Handles any rotation between src and target — all
+    /// groups in <c>_touchedScratch</c> are coplanar with the
+    /// candidate (distance tolerance check passed) and therefore
+    /// coplanar with each other. <see cref="TransferMembers"/>
+    /// reprojects each moved member's rectangle through world space
+    /// so any quarter-turn rotation between src and dst basis is
+    /// absorbed correctly.</para>
     /// </summary>
     private int DissolveTouchedGroups(int targetIdx)
     {
-        var target = _groups[targetIdx];
-
         // Iterate descending so RemoveAt doesn't shift indices we
-        // haven't visited yet. Skip the target itself; bail safely
-        // on any group whose basis isn't rotation-0 with the target
-        // (transfer math assumes shared basis direction).
+        // haven't visited yet. Skip the target itself.
         for (int i = _touchedScratch.Count - 1; i >= 0; i--)
         {
             int gi = _touchedScratch[i];
             if (gi == targetIdx) continue;
             var src = _groups[gi];
 
-            // Same-basis check: BasisU·BasisU close to +1 means the
-            // axes agree in direction. The earlier 90°-rotation
-            // check between candidate and group only proves each
-            // group's basis is canonical, not that two groups share
-            // orientation.
-            if (Vector3D.Dot(src.BasisU, target.BasisU) < 0.95) continue;
-            if (Vector3D.Dot(src.BasisV, target.BasisV) < 0.95) continue;
-
-            TransferMembers(src, target);
+            TransferMembers(src, _groups[targetIdx]);
             _groups.RemoveAt(gi);
             if (gi < targetIdx) targetIdx--;
         }
@@ -415,29 +404,60 @@ internal sealed class PanelGroupBuilder
     }
 
     /// <summary>Move every member of <paramref name="src"/> into
-    /// <paramref name="dst"/>, reprojecting each member's (U,V) AABB
-    /// from <paramref name="src"/>'s plane origin to
-    /// <paramref name="dst"/>'s. Assumes the two groups share basis
-    /// direction (caller's same-basis check). Expands
-    /// <paramref name="dst"/>'s union AABB to cover the new members.</summary>
+    /// <paramref name="dst"/>, reprojecting each member's rectangle
+    /// through world space so any quarter-turn rotation between the
+    /// two bases is absorbed. Member.Rotation is updated by the
+    /// src-to-dst rotation so the fanout finalizer's per-member blit
+    /// math stays correct in <paramref name="dst"/>'s frame. Expands
+    /// <paramref name="dst"/>'s union AABB to cover the new members.
+    /// Caller must guarantee src and dst are coplanar.</summary>
     private static void TransferMembers(PanelGroup src, PanelGroup dst)
     {
+        // src→dst rotation index — which dst axis does src.BasisU
+        // align with? Same convention as TryFindGroupForMerge:
+        //   0 = +dst.BasisU   1 = +dst.BasisV
+        //   2 = -dst.BasisU   3 = -dst.BasisV
+        int srcToDst;
+        double dotU = Vector3D.Dot(src.BasisU, dst.BasisU);
+        double dotV = Vector3D.Dot(src.BasisU, dst.BasisV);
+        if      (dotU >  0.95) srcToDst = 0;
+        else if (dotV >  0.95) srcToDst = 1;
+        else if (dotU < -0.95) srcToDst = 2;
+        else                   srcToDst = 3;  // dotV < -0.95
+
         var members = src.Members;
         for (int mi = 0; mi < members.Count; mi++)
         {
             var m = members[mi];
-            double uCsrc = 0.5 * (m.UMin + m.UMax);
-            double vCsrc = 0.5 * (m.VMin + m.VMax);
-            Vector3D worldCenter = src.Origin + uCsrc * src.BasisU + vCsrc * src.BasisV;
-            double uCdst = Vector3D.Dot(worldCenter - dst.Origin, dst.BasisU);
-            double vCdst = Vector3D.Dot(worldCenter - dst.Origin, dst.BasisV);
-            double uExt  = 0.5 * (m.UMax - m.UMin);
-            double vExt  = 0.5 * (m.VMax - m.VMin);
+
+            // Project the member's 4 world-space corners into dst's
+            // basis. Taking the AABB of those 4 points yields the
+            // member's rectangle in dst's frame — works for any
+            // quarter-turn rotation, where the simple uCenter+halfW
+            // formulation would have copied the wrong axis extents.
+            Vector3D c0 = src.Origin + m.UMin * src.BasisU + m.VMin * src.BasisV;
+            Vector3D c1 = src.Origin + m.UMax * src.BasisU + m.VMin * src.BasisV;
+            Vector3D c2 = src.Origin + m.UMax * src.BasisU + m.VMax * src.BasisV;
+            Vector3D c3 = src.Origin + m.UMin * src.BasisU + m.VMax * src.BasisV;
+            double u0 = Vector3D.Dot(c0 - dst.Origin, dst.BasisU); double v0 = Vector3D.Dot(c0 - dst.Origin, dst.BasisV);
+            double u1 = Vector3D.Dot(c1 - dst.Origin, dst.BasisU); double v1 = Vector3D.Dot(c1 - dst.Origin, dst.BasisV);
+            double u2 = Vector3D.Dot(c2 - dst.Origin, dst.BasisU); double v2 = Vector3D.Dot(c2 - dst.Origin, dst.BasisV);
+            double u3 = Vector3D.Dot(c3 - dst.Origin, dst.BasisU); double v3 = Vector3D.Dot(c3 - dst.Origin, dst.BasisV);
+            double newUMin = Math.Min(Math.Min(u0, u1), Math.Min(u2, u3));
+            double newUMax = Math.Max(Math.Max(u0, u1), Math.Max(u2, u3));
+            double newVMin = Math.Min(Math.Min(v0, v1), Math.Min(v2, v3));
+            double newVMax = Math.Max(Math.Max(v0, v1), Math.Max(v2, v3));
+
+            // Member.Rotation tracks its screen orientation relative
+            // to its group's basis. After moving src→dst, the new
+            // rotation is the old rotation composed with the
+            // src→dst rotation.
+            int newRotation = (m.Rotation + srcToDst) & 3;
 
             var moved = new GroupMember(m.Surface,
-                uMin: uCdst - uExt, uMax: uCdst + uExt,
-                vMin: vCdst - vExt, vMax: vCdst + vExt,
-                rotation: m.Rotation);
+                uMin: newUMin, uMax: newUMax,
+                vMin: newVMin, vMax: newVMax,
+                rotation: newRotation);
             dst.Members.Add(moved);
             m.Surface.Group = dst;
 

@@ -169,19 +169,15 @@ internal readonly struct MirrorCamera
     }
 
     /// <summary>
-    /// Single-panel convenience: handles transparent double-sided LCDs
-    /// (viewer on the back side gets the plane flipped along the normal
-    /// so the reflection still works).
+    /// Single-panel convenience. Front-side only — the viewer must be
+    /// on the side the screen normal points to. (An earlier "flip the
+    /// plane when behind a double-sided panel" path was explicitly
+    /// removed by the user; do not reintroduce it.)
     /// </summary>
     public static bool TryBuildForPanel(
         in WorldScreenPlane plane, Vector3D eye, float farPlane,
         out MirrorCamera camera)
-    {
-        WorldScreenPlane visible = plane;
-        if (visible.DoubleSided && visible.SignedDistanceFrom(eye) < 0)
-            visible = visible.Flipped();
-        return TryBuild(MirrorRectInPlane.FromCenteredPlane(visible), eye, farPlane, out camera);
-    }
+        => TryBuild(MirrorRectInPlane.FromCenteredPlane(plane), eye, farPlane, out camera);
 
     /// <summary>
     /// Coplanar-group convenience. No double-sided fallback — groups

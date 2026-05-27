@@ -26,13 +26,15 @@ internal sealed class LcdRtBucketPolicy
 {
     /// <summary>Multiplier on Coverage before sqrt — how much extra
     /// detail vs the panel's on-screen footprint. Lower = aggressively
-    /// shrink distant panels; higher = closer to LCD-native always.
+    /// shrink distant panels; higher = closer to mainView-native always.
     ///
-    /// <para>Tuned so a 0.5×0.5m LCD (512×512 RT) renders at native
-    /// resolution out to ~5m, then steps down to 256 from 5–15m, and
-    /// 128 beyond. Large wall LCDs (1024 RT) stay near native much
-    /// further (Coverage scales with physical-size²).</para></summary>
-    private const double Oversample = 100.0;
+    /// <para>Now that the bucket scales by mainViewCap (~1920) instead
+    /// of lcdSize (~512), the previous Oversample=100 saturates scale=1
+    /// for almost any visible panel → bucket always pegs at 1024 → no
+    /// LOD step-down. Oversample=5 lets scale=1 (full mainViewCap
+    /// bucket) at ~5% screen coverage; below that it steps down
+    /// smoothly: ~0.5% coverage → 512 bucket, ~0.05% → 128.</para></summary>
+    private const double Oversample = 5.0;
 
     /// <summary>Floor under <paramref name="lookFactor"/> so true-
     /// peripheral panels still get a usable bucket instead of
@@ -43,16 +45,26 @@ internal sealed class LcdRtBucketPolicy
 
     /// <summary>Compute the viewport size to render the unit's panel
     /// scene into. <paramref name="lcdSize"/> is the destination LCD's
-    /// offscreen RT size. <paramref name="coverage"/> is the unit's
+    /// offscreen RT size (kept for future per-mode tuning; no longer
+    /// caps the result). <paramref name="coverage"/> is the unit's
     /// projected-screen-area fraction. <paramref name="lookFactor"/>
     /// is cos⁴ of the angle between player-forward and the closest
     /// point on the panel's screen-projected AABB — 1.0 when looking
     /// directly at the panel, decays toward 0 for peripheral panels.
-    /// Multiplied into the bucket math so off-axis panels degrade
-    /// faster (hidden by reduced peripheral visual acuity). Result is
-    /// always one of the power-of-2 entries in <see cref="Pow2Buckets"/>,
-    /// per axis, capped above by <paramref name="lcdSize"/> and above
-    /// by <paramref name="mainViewCap"/>.</summary>
+    /// Result is in main-view pixels, snapped to the
+    /// <see cref="Pow2Buckets"/> grid per axis, capped above by
+    /// <paramref name="mainViewCap"/>.
+    ///
+    /// <para><b>What changed:</b> earlier the bucket was capped at
+    /// <paramref name="lcdSize"/>, so a close+focused panel rendered
+    /// at most LCD-native (e.g. 512×512) even when the main view was
+    /// 1920×1080. That defeated the point of "LOD" — a close mirror
+    /// should be HIGHER quality than a distant one, not capped at the
+    /// LCD's own pixel grid. Result was identical to LOD-off for
+    /// distant panels (mainView), but worse than LOD-off for close
+    /// ones (lcdSize). The cap is now main view; close+focused panels
+    /// supersample up to mainView, distant panels still step down to
+    /// 128/256/512 via the bucket grid.</para></summary>
     public Vector2I ResolutionFor(Vector2I lcdSize, double coverage, double lookFactor, Vector2I mainViewCap)
     {
         double look = Math.Max(MinLookFactor, lookFactor);
@@ -60,24 +72,24 @@ internal sealed class LcdRtBucketPolicy
             ? 1.0
             : Math.Min(1.0, Math.Sqrt(coverage * Oversample * look));
 
-        int desiredW = Math.Max(1, (int)(lcdSize.X * scale));
-        int desiredH = Math.Max(1, (int)(lcdSize.Y * scale));
+        // Desired size in main-view pixels (not LCD pixels). Scale=1.0
+        // means "render at main view native"; smaller scale steps the
+        // bucket down.
+        int desiredW = Math.Max(1, (int)(mainViewCap.X * scale));
+        int desiredH = Math.Max(1, (int)(mainViewCap.Y * scale));
 
-        // Snap UP (smallest bucket ≥ desired) so borderline coverages
-        // get the higher-res bucket — same bias the original
-        // CoverageResolutionPolicy used. Nearest-snap rounded 362 → 256
-        // (half-LCD) which was visibly degraded; snap-up rounds 362 →
-        // 512 (LCD-native). LCD-size cap still keeps us from rendering
-        // larger than the destination.
-        var snapped = Pow2Buckets.SnapUpCapped(
-            new Vector2I(desiredW, desiredH),
-            lcdSize);
+        // Tiers per axis: {128, 256, 512, 1024} from Pow2Buckets, plus
+        // a top tier at mainViewCap so close+focused panels can hit
+        // full main-view resolution. Without the top tier, Pow2Buckets
+        // would cap at 1024 even when desired = 1920 → close panels
+        // would never reach native main-view quality.
+        int w = (desiredW > 1024)
+            ? Math.Min(desiredW, mainViewCap.X)
+            : Pow2Buckets.SnapUp(desiredW);
+        int h = (desiredH > 1024)
+            ? Math.Min(desiredH, mainViewCap.Y)
+            : Pow2Buckets.SnapUp(desiredH);
 
-        // Belt-and-braces upper cap at the main view's resolution —
-        // we can never usefully render larger than the gbuffer that
-        // the engine allocated at startup.
-        snapped.X = Math.Min(snapped.X, mainViewCap.X);
-        snapped.Y = Math.Min(snapped.Y, mainViewCap.Y);
-        return snapped;
+        return new Vector2I(w, h);
     }
 }

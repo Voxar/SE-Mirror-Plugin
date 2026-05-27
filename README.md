@@ -1,9 +1,9 @@
-# MirrorCameraPlugin
+# LCD Mirrors and Cameras
 
 A Pulsar plugin for Space Engineers that renders **real-time mirror
 reflections** and **live camera feeds** onto in-game LCD panels. Pairs
-with the `MirrorCameraMod` SE mod (the mod owns the LCD apps and
-terminal UI; the plugin owns the actual rendering).
+with the [MirrorCameraMod](https://steamcommunity.com/sharedfiles/filedetails/?id=3733546359) 
+SE mod that handles the LCD apps and terminal UI.
 
 The mod alone shows a "Plugin not loaded" splash. The plugin alone does
 nothing. Together they render.
@@ -21,44 +21,22 @@ nothing. Together they render.
   plane is rendered as ONE off-axis pass, then blitted with the correct
   sub-rect to each member's offscreen. A 3×3 mirror wall costs one
   render, not nine.
-- Adjacency-gated merging — touching panels merge, distant coplanar
-  panels stay separate.
-- "Always group touching" override (default on) — edge-to-edge mirror
-  walls of arbitrary size merge into one render regardless of the
-  proportional render-target budget.
 
 ### Camera panels
 
 - Live view from any camera block on the same grid or any mechanically
   connected subgrid (rotors, pistons, hinges).
 - Per-surface camera selection via the LCD's terminal controls.
-- Per-surface zoom (1.0×–15.0×) and render-range sliders.
+- Per-surface zoom (1.0×–20.0×).
 - Frustum honors the camera's actual lens position (the `"camera"`
   model dummy that `MyCameraBlock.GetViewMatrix` uses).
+- Routes through SE's off-axis projection path (msg.FOV=0) so the
+  rendered FOV stays constant regardless of the resolution-bucketing
+  viewport.
 
 ### Scheduling
 
 The orchestrator picks at most `MaxPerFrame` panels to render per batch.
-Same `FocusAndStalenessSelector` instance runs both slots; behavior:
-
-- **Pass 1 — focus threshold**: any unit whose
-  `FocusScore = Coverage × LookFactor²⁰ / max(1, DistSq)` exceeds
-  `0.001` is "focused" — the player is clearly aimed at it. Highest-
-  scoring focused unit wins.
-- **Pass 2 — focus + staleness**: when no unit passes the threshold,
-  pick by `focus + staleness × 1e-5`. Stale panels climb past
-  peripheral-but-not-stale ones over many frames.
-- **`MaxPerFrame=1` + focused-camera edge case** — control-room mode.
-  Cameras don't ghost between frames so a single-slot budget shouldn't
-  lock to one aimed-at camera. Mirrors keep focus+staleness priority;
-  cameras pure round-robin via a cursor.
-- **Player-stationary + focused-mirror edge case** — mirror ghosting
-  only shows under TRANSLATION (reflected-eye moves), not rotation.
-  When the eye isn't moving every visible mirror cycles via a cursor,
-  giving each equal update share.
-- **Render-failure backoff** — on render failure the staleness clock
-  advances anyway, so a permanently-broken panel can't accumulate
-  unbounded priority and dominate every batch.
 
 ### Cull pipeline
 
@@ -70,60 +48,44 @@ later ones rely on earlier stages having pruned the obvious rejects.
    coverage is below `1e-4` (≈ 14×14 pixels on 1080p). Catches
    permanently-broken tiny far panels that would otherwise enter the
    staleness-runaway loop.
-2. **Range cull** — group's screen-center farther from the eye than
-   the panel's configured `Render Range` (default 40m, max 500m).
-3. **Facing cull** — viewer is on the back side of the panel plane.
-   Double-sided LCDs flip the plane normal instead so the reflection
-   still works from either side.
-4. **Look-direction cull** — every AABB corner outside the look cone
-   (cosine ≈ 0.26 ≡ 75° off-axis). Per-corner so wide groups with one
-   corner in view don't get dropped.
-5. **Frustum cull** — group's union AABB outside the player's view.
-6. **Panel-vs-panel occlusion cull** — drops any unit whose
+2. **`MaxScreenRenderDistance` cull** — closest member's distance
+   greater than the block definition's `MaxScreenRenderDistance` (the
+   value SE uses to stop drawing the LCD's screen content). Uses
+   `CullContext.GroupClosestDistSq` computed by `UnitScorer` so wide
+   walls aren't dropped just because the lead member is at the far end.
+3. **Range cull** — closest member's distance greater than the
+   plugin-wide `Max view distance` (default 40m, slider 5-400m).
+   Pushes `"Out of range"` to the panel's status so the splash
+   subtitle changes when this fires.
+4. **Facing cull** — viewer on the back side of the panel plane.
+   Opaque-mirror only; no double-sided flip.
+5. **Look-direction cull** — every union-AABB corner outside the look
+   cone (cosine ≈ 0.26 ≡ 75° off-axis). Per-corner so wide groups with
+   one corner in view don't get dropped.
+6. **Frustum cull** — group's union AABB outside the player's view.
+7. **Panel-vs-panel occlusion cull** — drops any unit whose
    screen-projected NDC AABB is fully contained inside a closer unit's
    AABB (both clipped to viewport). O(N²) over surviving units, sub-µs
    at typical N. Catches the "wall of close LCDs hides the ones
    behind them" case so we don't burn GPU rendering invisible panels.
 
-The diag log line `cull: built=N stdCull=M survived=K` distinguishes
-the first five stages from the panel-vs-panel pass — N−M panels are
-dropped by frustum/facing/look/range/coverage; M−K are dropped by
-panel-vs-panel occlusion.
-
 ### Per-panel render-resolution bucketing
 
-Scene render for each panel runs at a power-of-2 viewport (`{128, 256,
-512, 1024}` per axis) bucketed by Coverage and capped at the LCD's
-offscreen RT size. Smaller buckets save GPU at the cost of a blit
-upscale (visible as some blur on distant panels).
+Scene render for each panel runs at a discrete-tier viewport
+(`{128, 256, 512, 1024, mainViewCap}` per axis) bucketed by Coverage,
+LookFactor, and the main view's resolution. Smaller buckets save GPU
+at the cost of a blit upscale (visible as some blur on distant
+panels); close + focused panels render at main-view-native resolution.
 
 The bucket math:
-- `scale = sqrt(Coverage × 2)` clamped to `[0..1]`
-- `desired = lcdSize × scale` per axis
-- Snap each axis UP to the smallest pow2 bucket ≥ desired
-- Cap each axis at LCD RT size AND at main view resolution
+- `look = max(0.10, LookFactor)`
+- `scale = min(1, sqrt(Coverage × 5 × look))`
+- `desired = mainViewCap × scale` per axis
+- Anything > 1024 → snap to `mainViewCap` (top tier)
+- Else snap UP to the smallest pow2 bucket ≥ desired (`{128, 256, 512, 1024}`)
 
-For a 512×512 LCD on 1920×1080:
-
-| Coverage | scale | desired px | bucket |
-|---|---|---|---|
-| 0.5 | 1.0 | 512 | 512 (1:1) |
-| 0.25 | 0.71 | 362 | 512 (1:1) |
-| 0.1 | 0.45 | 229 | 256 (2× upscale) |
-| 0.025 | 0.22 | 115 | 128 (4× upscale) |
-
-### Other
-
-- **Per-panel status channel** — plugin reports per-panel state
-  (`"rendered"`, `"failed: ..."`) back to the mod, which surfaces it
-  as the splash subtitle.
-- **Cockpit head fix** — character head/eye materials masked in FPV
-  are unmasked during panel renders so the mirror reflects the full
-  character even when seated.
-- **Optional shadow suppression** — turn off the engine's directional
-  shadows pass for panel renders to avoid cascade flickering.
-
----
+`Oversample = 5` calibrates so `scale = 1` (mainView tier) at ~5% screen
+coverage; below that the bucket steps down smoothly.
 
 ## Performance
 
@@ -133,20 +95,8 @@ into a render target sized to fit the panel. The plugin's job is to
 make sure that pass happens at most once per panel per frame and that
 unnecessary panels never enter the pipeline at all.
 
-Knobs from most-impactful to least:
 
-- **`MaxPerFrame`** (default 1) — hard cap on panels rendered per
-  batch. Single most impactful perf setting.
-- **Distance resolution LOD** (default off) — power-of-2 bucketing
-  described above. Cuts GPU work on distant panels at the cost of
-  some blit-upscale blur.
-- **Render shadows** (default on) — directional shadow pass is most
-  of the per-panel GPU cost. Off saves a lot but can leave a slight
-  flat look on the reflection.
-- **Far clip (m)** (default 5000) — far-plane distance. Lower = less
-  shadow-cascade / distant-LOD work.
-
-The orchestrator also rebuilds the group structure only when the
+The orchestrator rebuilds the group structure only when the
 registry version changes (panel added / removed / config changed).
 Steady state is one integer compare per batch.
 
@@ -157,25 +107,44 @@ Steady state is one integer compare per batch.
 In-game plugin config (Pulsar plugin list → "Mirror Camera Panels" →
 Configure):
 
+**Master:**
+
 | Setting | Default | Purpose |
 |---|---|---|
 | Enabled | on | Master switch |
-| Max per frame | 1 | Hard cap on panels rendered per batch |
-| Head fix | on | Show character head/face during panel renders |
-| Far clip (m) | 5000 | Far-plane distance for panel renders |
-| Render shadows | on | Include directional shadows in panel renders |
-| Always group touching | on | Merge edge-to-edge mirror walls regardless of RT budget |
+
+**Performance:**
+
+| Setting | Default | Purpose |
+|---|---|---|
+| Max per frame | 1 | Hard cap on panels rendered per batch (1-3) |
+| Max view distance (m) | 40 | Panels farther than this don't render (5-400) |
+| Far clip (m) | 20000 | Far-plane distance for panel renders (1300-100000) |
+| Distance resolution LOD | on | Discrete-tier render-resolution scaling |
+| Render on pause screen | off | Keep panels rendering when the game is paused |
+
+**Troubleshooting:**
+
+| Setting | Default | Purpose |
+|---|---|---|
+| Disable shadows | off | Skip directional-shadows pass in panel renders (fixes distant-shadow flicker) |
+
+**Debug:**
+
+| Setting | Default | Purpose |
+|---|---|---|
 | Debug HUD | off | Top-N scored panels with per-unit signals + world-space outlines |
-| Distance resolution LOD | off | Pow2-bucketed render-resolution scaling |
 
 Per-LCD settings (in the LCD's terminal controls when its app is set
 to "Mirror" or "Camera"):
 
 - **Camera source** (Camera app) — listbox of every camera on the
   same grid or any mechanically-connected subgrid.
-- **Camera zoom** (Camera app, when source selected) — 1.0×–15.0×.
-- **Render range** — meters. Beyond this the LCD shows its splash.
-  Default 40m, max 500m.
+- **Override camera zoom** (Camera app, when source selected) —
+  per-surface zoom override; off uses the camera block's own zoom.
+- **Camera View Zoom** (Camera app, when override on) — 1.0×–20.0×.
+- **Yaw / Pitch / Roll** (Mirror app, thin LCD variants only) —
+  mesh tilt for the panel's visible screen, ±45°.
 
 ---
 
@@ -183,8 +152,8 @@ to "Mirror" or "Camera"):
 
 ```
 ┌──────────────────────────────┐         ┌──────────────────────────────┐
-│ MirrorCameraMod              │         │ MirrorCameraPlugin           │
-│ (SE mod)                     │         │ (Pulsar plugin)              │
+│ MirrorCameraMod              │         │ MirrorPlugin                 │
+│ (SE mod)                     │         │ (Pulsar plugin, ClientPlugin)│
 ├──────────────────────────────┤         ├──────────────────────────────┤
 │ MirrorScript / CameraScript  │         │ ReflectionModBridge          │
 │   ▼                          │         │   reads PanelRegistry via    │
@@ -193,9 +162,9 @@ to "Mirror" or "Camera"):
 │   active panels + status     │         │ SurfaceRegistry              │
 │                              │ ◄────── │   plugin-side mirror,        │
 │ MirrorSession                │ status  │   versioned for cache gating │
-│   terminal UI, storage I/O   │ writes  │   ▼                          │
-│                              │         │ PanelGroupBuilder            │
-│                              │         │   merges coplanar same-grid  │
+│   terminal UI, storage I/O,  │ writes  │   ▼                          │
+│   MP sync via                │         │ PanelGroupBuilder            │
+│   SettingsNetwork            │         │   merges coplanar same-grid  │
 │                              │         │   mirrors into groups        │
 │                              │         │   ▼                          │
 │                              │         │ PanelBatchOrchestrator       │
@@ -214,13 +183,14 @@ reads don't pay the boxing cost.
 ## Building
 
 ```sh
-dotnet build MirrorCameraPlugin/MirrorCameraPlugin.csproj \
-  /p:Bin64="path/to/SpaceEngineers/Bin64" \
-  /p:PulsarDir="path/to/Pulsar"
+dotnet build Mirror.sln
 ```
 
-Targets `net48`. Uses Harmony and the Krafs publicizer trick to access
-engine internals.
+The solution lives at `MirrorPlugin/Mirror.sln`. `Directory.Build.props`
+points at the SE `Bin64` directory; the post-build step copies the
+output DLL into `%APPDATA%\Pulsar\Legacy\Local\Mirror.dll`. Targets
+`net48`. Uses Harmony to patch `MyRender11.DrawGameScene` and a few
+engine helpers, plus the Krafs publicizer trick to access internals.
 
 ---
 
@@ -239,13 +209,10 @@ Turn on **Debug HUD** in the plugin config:
   (picked = green, others = white).
 
 The engine log (`%APPDATA%/SpaceEngineers/SpaceEngineers_*.log`) gets
-throttled diag lines under `[MirrorCameraPlugin/Diag]`:
-- `groups: total=N solo=M grouped=K (members=L)` per rebuild
-- `merge: reject mode=... grid=... ...` — rejection counts per cause
-- `cull: built=N stdCull=M survived=K` per batch
-- `render: picked=N rendered=M failed=L` per batch
+throttled diag lines under `[Mirror/Diag]`. Most useful entries:
 - `renderfail: block=... reason='...'` for every failed render
-  (identifies block + cause)
+  (identifies block + cause). Unconditional; not throttled.
+- Group / cull / render summary lines per batch.
 
 ---
 

@@ -1,24 +1,13 @@
 <?xml version="1.0"?>
 <PluginData xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:type="GitHubPlugin">
-    <!-- The current plugin version's commit hash -->
-    <Commit>TODO Git commit hash</Commit>
-
-    <!-- The ID of your plugin, never change this -->
     <Id>589B0A8A-DB20-4CE3-8D6A-6B6E5FF03F04</Id>
-
-    <!-- GitHub repository ID -->
+    
     <RepoId>Voxar/SE-Mirror-Plugin</RepoId>
+    <Commit>156783f6dc02dced29d1dc52ecc489df4624d546</Commit>
 
-    <!-- The name of your plugin that will appear in the plugin list -->
-    <FriendlyName>Mirror</FriendlyName>
-
-    <!-- The author name that you want to appear in the plugin list -->
     <Author>Voxar</Author>
-
-    <!-- Optional tooltip for the plugin in the plugin list -->
-    <Tooltip>Mirror and Camera LCD app</Tooltip>
-
-    <!-- Optional plugin description. If omitted, this will be the same as the Tooltip. 1000 characters max. -->
+    <FriendlyName>LCD Mirror and Camera View</FriendlyName>
+    <!-- <Tooltip>LCD Mirror and Camera View</Tooltip> -->
     <Description>Adds Mirrors to Space Engineers, as LCD app to use on any TextPanel and LCD block
 
 Created for immersive vehicle rear view mirrors and First Person view only playthroughs. 
@@ -33,23 +22,10 @@ as possible with only one extra world render per frame.
         <Directory>ClientPlugin</Directory>
     </SourceDirectories>
 
-    <!-- To specify asset files to be copied onto disk, use the AssetFolder tag.
-    <AssetFolder>Project/Assets/</AssetFolder> -->
-
-    <!-- To specify a required NuGet package, use either a list of PackageReference tags OR a Config tag.
-    <NuGetReferences>
-      <PackageReference Include="OVRSharp" Version="1.2.0" />
-    </NuGetReferences> 
-    -->
-
     <!-- Optional tag that specifies what dependencies this plugin has. Dependencies will be automatically enabled when this plugin is enabled.
     <DependencyIds>
       <Id>viktor-ferenczi/se-performance-improvements</Id>
     </DependencyIds> 
-    -->
-
-    <!-- Optional tag that specifies whether the plugin is hidden. Hidden plugins only appear when they are enabled or searched for in the search box.
-    <Hidden>true</Hidden> 
     -->
 
     <!-- Optional list of alternate versions of the plugin, use it for test or custom builds
@@ -60,7 +36,4 @@ as possible with only one extra world render per frame.
       </Version>
     </AlternateVersions> 
     -->
-
-    <!-- Feel free to delete the comments and the commented out optional blocks once you're done. -->
-
 </PluginData>

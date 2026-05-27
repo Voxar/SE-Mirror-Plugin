@@ -1,6 +1,7 @@
 using System;
 using VRage.Render11.Resources;
 using VRage.Utils;
+using VRageMath;
 
 namespace ClientPlugin;
 
@@ -71,6 +72,17 @@ internal sealed class MirrorGroupRenderer : IMirrorGroupRenderer
             var eye = ctx.ViewerWorld.Translation;
             if (!MirrorCamera.TryBuildForGroup(group, eye, ctx.EffectiveFarPlaneM, out var cam))
                 return false;
+
+            // Player-in-reflection check, stamped on every member so
+            // the scheduler can read the lead surface for the small
+            // priority bonus next frame. One frustum test per group.
+            {
+                MatrixD viewProj = cam.View * (MatrixD)cam.Projection;
+                var frustum = new BoundingFrustumD(viewProj);
+                bool playerInFrustum = frustum.Contains(eye) != ContainmentType.Disjoint;
+                for (int i = 0; i < members.Count; i++)
+                    members[i].Surface.PlayerInReflectionLastRender = playerInFrustum;
+            }
 
             double unionW = group.UMax - group.UMin;
             double unionH = group.VMax - group.VMin;

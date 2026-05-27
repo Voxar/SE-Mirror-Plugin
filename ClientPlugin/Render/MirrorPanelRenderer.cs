@@ -99,6 +99,17 @@ internal sealed class MirrorPanelRenderer : IPanelRenderer
                 return false;
             }
 
+            // 4b. Player-in-reflection check — scheduler reads this as
+            //     a small priority bonus next frame. Computed here
+            //     (after culling, before render) so the result reflects
+            //     exactly what this render will show.
+            {
+                MatrixD viewProj = cam.View * (MatrixD)cam.Projection;
+                var frustum = new BoundingFrustumD(viewProj);
+                surface.PlayerInReflectionLastRender =
+                    frustum.Contains(eye) != ContainmentType.Disjoint;
+            }
+
             // 5. Build panel state, swap engine state under a guard,
             //    run the pipeline.
             var panelState = PanelRenderState.ForMirror(

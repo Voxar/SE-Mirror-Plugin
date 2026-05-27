@@ -76,6 +76,19 @@ internal sealed class PanelSurface
     /// concurrent dictionary on the mod side. Render thread only.</summary>
     internal string LastReportedStatus;
 
+    /// <summary>
+    /// Set at the end of a mirror render: did the player's eye position
+    /// fall inside the reflected camera's view frustum at that render?
+    /// I.e., would the rendered mirror image have contained the
+    /// player's body. The scheduler reads this on subsequent frames as
+    /// a small priority bonus — a mirror the player is "in" is likely
+    /// being used as a rear-view / self-monitor. Stays stale between
+    /// renders by design (user-requested), so a mirror that hasn't
+    /// rendered in a while keeps its last value. Mirror surfaces only;
+    /// cameras leave it default (false). Render thread only.
+    /// </summary>
+    internal bool PlayerInReflectionLastRender;
+
     // ── Diagnostics ──────────────────────────────────────────────────
 
     /// <summary>Last failure message for this surface; null on success.

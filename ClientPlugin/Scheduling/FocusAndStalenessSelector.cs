@@ -71,6 +71,15 @@ internal sealed class FocusAndStalenessSelector : IPanelSlotSelector
     // camera even before staleness kicks in).
     private const double MovingMirrorBoost = 0.01;
 
+    // Small additive bonus added to a mirror's combined score when
+    // the player's eye was inside the mirror's reflected camera
+    // frustum at last render — i.e., the rendered image contained
+    // the player's body. Tags mirrors the player is actively using
+    // as a self-monitor / rear-view. Subtle on purpose: wins ties
+    // and edge cases against other mirrors but doesn't override the
+    // staleness rotation.
+    private const double PlayerInReflectionBonus = 0.005;
+
     // A unit counts as "actively competing" in the surveillance
     // auto-balancer only when it passes BOTH gates:
     //   * focus score > FocusCompeteThreshold (~near-crosshair attention),
@@ -208,12 +217,15 @@ internal sealed class FocusAndStalenessSelector : IPanelSlotSelector
                             bool isPlayerInCockpit, double focusScale,
                             bool isPlayerMoving)
     {
-        var mode = u.Group.Members[0].Surface.Mode;
+        var leadSurface = u.Group.Members[0].Surface;
+        var mode = leadSurface.Mode;
         double modeWeight = mode == PanelMode.Camera ? CameraFocusWeight : 1.0;
         double f          = isPlayerInCockpit ? 0.0 : _focusScore.Compute(in u, tickCounter) * modeWeight * focusScale;
         long   staleness  = MaxMemberStaleness(u, tickCounter);
         double movingBonus = (isPlayerMoving && mode == PanelMode.Mirror) ? MovingMirrorBoost : 0.0;
-        return f + staleness * StalenessWeight + movingBonus;
+        double reflectionBonus = (mode == PanelMode.Mirror && leadSurface.PlayerInReflectionLastRender)
+            ? PlayerInReflectionBonus : 0.0;
+        return f + staleness * StalenessWeight + movingBonus + reflectionBonus;
     }
 
     /// <summary>
